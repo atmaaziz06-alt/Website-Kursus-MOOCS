@@ -18,11 +18,11 @@ export const InstructorStudents: React.FC = () => {
     <div className="max-w-[1200px] mx-auto space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-text-heading">Students Directory</h1>
-          <p className="text-xs text-slate-500 mt-1">Manage and mentor learners enrolled in your active bootcamps</p>
+          <h1 className="text-2xl font-extrabold text-text-heading">Daftar Peserta</h1>
+          <p className="text-xs text-slate-500 mt-1">Kelola dan bimbing peserta di bootcamp aktifmu</p>
         </div>
         <Button variant="outline" size="sm" leftIcon={<Download className="w-3.5 h-3.5" />}>
-          Export Student List (.CSV)
+          Ekspor Daftar Peserta (.CSV)
         </Button>
       </div>
 
@@ -32,7 +32,7 @@ export const InstructorStudents: React.FC = () => {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search students by name, email, or ID..."
+            placeholder="Cari nama, email, atau ID peserta..."
             className="w-full max-w-sm bg-slate-50 border border-border rounded-xl text-xs px-3.5 py-2.5 focus:outline-none focus:border-blue"
           />
         </div>
@@ -41,12 +41,12 @@ export const InstructorStudents: React.FC = () => {
           <table className="w-full text-left text-xs">
             <thead>
               <tr className="border-b border-border text-slate-400 font-bold uppercase tracking-wider">
-                <th className="pb-3">STUDENT</th>
-                <th className="pb-3">ENROLLED TRACK</th>
-                <th className="pb-3 w-36">SYLLABUS PROGRESS</th>
-                <th className="pb-3">QUIZ AVG</th>
+                <th className="pb-3">PESERTA</th>
+                <th className="pb-3">PROGRAM YANG DIIKUTI</th>
+                <th className="pb-3 w-36">PROGRES SILABUS</th>
+                <th className="pb-3">RATA-RATA KUIS</th>
                 <th className="pb-3">STATUS</th>
-                <th className="pb-3">ACTION</th>
+                <th className="pb-3">TINDAKAN</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60">
@@ -71,7 +71,7 @@ export const InstructorStudents: React.FC = () => {
                   <td className="py-3.5 font-bold text-navy">{st.score}%</td>
                   <td className="py-3.5">
                     <Badge variant={st.status === 'Completed' ? 'active' : st.status === 'At Risk' ? 'in-review' : 'preview-free'} size="xs">
-                      {st.status}
+                      {st.status === 'Completed' ? 'Selesai' : st.status === 'At Risk' ? 'Berisiko' : 'Aktif'}
                     </Badge>
                   </td>
                   <td className="py-3.5">
@@ -79,9 +79,9 @@ export const InstructorStudents: React.FC = () => {
                       type="button"
                       onClick={() => navigate(`/instructor/messages/${st.id}`)}
                       className="text-blue hover:text-navy font-bold"
-                      aria-label={`Message ${st.name}`}
+                      aria-label={`Kirim pesan kepada ${st.name}`}
                     >
-                      Message
+                      Pesan
                     </button>
                   </td>
                 </tr>
@@ -89,7 +89,7 @@ export const InstructorStudents: React.FC = () => {
             </tbody>
           </table>
           {filteredStudents.length === 0 && (
-            <p className="py-8 text-center text-sm text-slate-500">No students match your search.</p>
+            <p className="py-8 text-center text-sm text-slate-500">Tidak ada peserta yang cocok dengan pencarianmu.</p>
           )}
         </div>
       </Card>

@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button, Card, Input, Select } from '../../components/ui';
 import { useCourses } from '../../context/CourseContext';
 import { CourseCategory, CourseLevel } from '../../types';
+import { translateCategory, translateLevel } from '../../config/locale';
 
 const categories: CourseCategory[] = [
   'Technology',
@@ -33,7 +34,7 @@ export const InstructorCourseCreate: React.FC = () => {
     const priceValue = Number(formData.get('price'));
 
     if (!title || !description || !duration || !Number.isFinite(priceValue) || priceValue < 0) {
-      setErrorMessage('Please provide a title, description, duration, and a valid non-negative price.');
+      setErrorMessage('Masukkan judul, deskripsi, durasi, dan harga nol atau lebih yang valid.');
       return;
     }
 
@@ -60,12 +61,12 @@ export const InstructorCourseCreate: React.FC = () => {
           className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-blue mb-4"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
-          Instructor dashboard
+          Dasbor Pengajar
         </Link>
-        <p className="text-xs font-bold uppercase tracking-wider text-blue mb-1">Course authoring</p>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-text-heading">Create a course</h1>
+        <p className="text-xs font-bold uppercase tracking-wider text-blue mb-1">Pembuatan kursus</p>
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-text-heading">Buat Kursus</h1>
         <p className="text-sm text-slate-500 mt-1">
-          Add the course details. You can save it as a draft or publish it to your instructor course list.
+          Lengkapi detail kursus. Kamu dapat menyimpannya sebagai draf atau menerbitkannya.
         </p>
       </div>
 
@@ -76,22 +77,22 @@ export const InstructorCourseCreate: React.FC = () => {
               <BookOpen className="w-5 h-5" />
             </span>
             <div>
-              <h2 className="text-base font-bold text-text-heading">Course information</h2>
-              <p className="text-xs text-slate-500">Basic details learners will see about your course.</p>
+              <h2 className="text-base font-bold text-text-heading">Informasi Kursus</h2>
+              <p className="text-xs text-slate-500">Informasi dasar kursus yang akan dilihat peserta.</p>
             </div>
           </div>
 
           <Input
             name="title"
-            label="Course title"
-            placeholder="e.g. Modern React and TypeScript"
+            label="Judul Kursus"
+            placeholder="mis. React Modern dan TypeScript"
             maxLength={100}
             required
           />
 
           <div>
             <label htmlFor="course-description" className="block text-xs font-semibold text-text-heading mb-1.5 uppercase tracking-wide">
-              Course description
+              Deskripsi kursus
             </label>
             <textarea
               id="course-description"
@@ -100,40 +101,40 @@ export const InstructorCourseCreate: React.FC = () => {
               minLength={20}
               maxLength={1000}
               required
-              placeholder="Explain what learners will study and what skills they will gain."
+              placeholder="Jelaskan materi yang akan dipelajari dan keterampilan yang akan diperoleh."
               className="w-full rounded-xl border border-border bg-white px-3.5 py-3 text-sm text-slate-800 placeholder:text-slate-400 transition-all focus:outline-none focus:ring-2 focus:ring-blue/20 focus:border-blue"
             />
-            <p className="mt-1 text-xs text-slate-400">Write at least 20 characters.</p>
+            <p className="mt-1 text-xs text-slate-400">Tuliskan minimal 20 karakter.</p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Select
               name="category"
-              label="Category"
-              options={categories.map((category) => ({ value: category, label: category }))}
+              label="Kategori"
+              options={categories.map((category) => ({ value: category, label: translateCategory(category) }))}
               defaultValue="Development"
               required
             />
             <Select
               name="level"
-              label="Difficulty level"
-              options={levels.map((level) => ({ value: level, label: level }))}
+              label="Tingkat Kesulitan"
+              options={levels.map((level) => ({ value: level, label: translateLevel(level) }))}
               defaultValue="Beginner"
               required
             />
             <Input
               name="duration"
-              label="Estimated duration"
-              placeholder="e.g. 8 hours or 4 weeks"
+              label="Perkiraan Durasi"
+              placeholder="mis. 8 jam atau 4 minggu"
               maxLength={40}
               required
             />
             <Input
               name="price"
-              label="Price (USD)"
+              label="Harga (Rupiah)"
               type="number"
               min="0"
-              step="0.01"
+              step="1000"
               defaultValue="0"
               leftIcon={<CircleDollarSign className="w-4 h-4" />}
               required
@@ -150,14 +151,14 @@ export const InstructorCourseCreate: React.FC = () => {
         <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3">
           <p className="flex items-center gap-1.5 text-xs text-slate-500">
             <FileText className="w-4 h-4" />
-            Drafts and published courses are saved on this device.
+            Draf dan kursus terbit disimpan di perangkat ini.
           </p>
           <div className="flex flex-col-reverse sm:flex-row gap-2">
             <Button type="submit" name="status" value="Draft" variant="outline">
-              Save as draft
+              Simpan sebagai Draf
             </Button>
             <Button type="submit" name="status" value="Published" variant="orange" leftIcon={<Send className="w-4 h-4" />}>
-              Publish course
+              Terbitkan Kursus
             </Button>
           </div>
         </div>
@@ -165,7 +166,7 @@ export const InstructorCourseCreate: React.FC = () => {
 
       <div className="flex items-start gap-2 rounded-xl border border-green/20 bg-green-tint/50 px-4 py-3 text-xs leading-relaxed text-slate-600">
         <CheckCircle2 className="w-4 h-4 shrink-0 text-green" />
-        Courses you create will appear in your instructor dashboard and remain saved when you reload the page.
+        Kursus yang kamu buat akan muncul di dasbor pengajar dan tetap tersimpan saat halaman dimuat ulang.
       </div>
     </div>
   );

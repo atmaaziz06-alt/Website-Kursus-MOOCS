@@ -40,7 +40,7 @@ export const AccountSettingsPage: React.FC = () => {
   const { user, role } = useAuth();
   const [preferences, setPreferences] = useState(() => getInitialPreferences(role));
   const [saved, setSaved] = useState(false);
-  const roleLabel = role === 'participant' ? 'Participant' : role === 'instructor' ? 'Instructor' : 'Administrator';
+  const roleLabel = role === 'participant' ? 'Peserta' : role === 'instructor' ? 'Pengajar' : 'Admin';
   const avatar = role === 'instructor'
     ? getInstructorPhoto(user?.avatarId || 'john-smith')
     : getUserAvatar(user?.avatarId || 'dian-paramitha');
@@ -63,9 +63,9 @@ export const AccountSettingsPage: React.FC = () => {
   return (
     <div className="max-w-[1000px] mx-auto space-y-6">
       <div>
-        <p className="text-xs font-bold uppercase tracking-wider text-blue mb-1">Account</p>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-text-heading">Profile & Settings</h1>
-        <p className="text-sm text-slate-500 mt-1">Manage your profile details and communication preferences.</p>
+        <p className="text-xs font-bold uppercase tracking-wider text-blue mb-1">Akun</p>
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-text-heading">Profil & Pengaturan</h1>
+        <p className="text-sm text-slate-500 mt-1">Kelola profil dan preferensi komunikasimu.</p>
       </div>
 
       <Card className="p-5 sm:p-7">
@@ -77,20 +77,20 @@ export const AccountSettingsPage: React.FC = () => {
           </div>
           <span className="ml-auto hidden sm:inline-flex items-center gap-1.5 rounded-full bg-green-tint px-3 py-1 text-xs font-bold text-green">
             <ShieldCheck className="w-3.5 h-3.5" />
-            Active account
+            Akun aktif
           </span>
         </div>
 
         <div className="grid gap-5 pt-5 sm:grid-cols-2">
           <div>
-            <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-slate-500">Full name</p>
+            <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-slate-500">Nama lengkap</p>
             <div className="flex items-center gap-2.5 rounded-xl border border-border bg-slate-50 px-3.5 py-3 text-sm text-slate-700">
               <UserRound className="w-4 h-4 text-slate-400" />
               <span>{user?.name || 'User'}</span>
             </div>
           </div>
           <div>
-            <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-slate-500">Email address</p>
+            <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-slate-500">Alamat email</p>
             <div className="flex items-center gap-2.5 rounded-xl border border-border bg-slate-50 px-3.5 py-3 text-sm text-slate-700 break-all">
               <Mail className="w-4 h-4 shrink-0 text-slate-400" />
               <span>{user?.email || 'No email available'}</span>
@@ -99,41 +99,41 @@ export const AccountSettingsPage: React.FC = () => {
         </div>
         <p className="mt-4 flex items-center gap-1.5 text-xs text-slate-400">
           <LockKeyhole className="w-3.5 h-3.5" />
-          Profile details are managed by your EduSpace account.
+          Detail profil dikelola melalui akun EduSpace-mu.
         </p>
       </Card>
 
       <Card className="p-5 sm:p-7">
         <div className="mb-5">
-          <h2 className="text-base font-bold text-text-heading">Notification preferences</h2>
-          <p className="mt-1 text-sm text-slate-500">Choose which updates you’d like to receive.</p>
+          <h2 className="text-base font-bold text-text-heading">Preferensi notifikasi</h2>
+          <p className="mt-1 text-sm text-slate-500">Pilih informasi yang ingin kamu terima.</p>
         </div>
         <div className="divide-y divide-border">
           <div className="flex items-center justify-between gap-4 py-4">
             <div>
-              <p className="text-sm font-semibold text-slate-700">Email updates</p>
-              <p className="mt-0.5 text-xs text-slate-500">Receive important account and activity updates.</p>
+              <p className="text-sm font-semibold text-slate-700">Pembaruan email</p>
+              <p className="mt-0.5 text-xs text-slate-500">Terima informasi penting tentang akun dan aktivitasmu.</p>
             </div>
-            <Toggle ariaLabel="Email updates" checked={preferences.emailUpdates} onChange={(value) => updatePreference('emailUpdates', value)} />
+            <Toggle ariaLabel="Pembaruan email" checked={preferences.emailUpdates} onChange={(value) => updatePreference('emailUpdates', value)} />
           </div>
           <div className="flex items-center justify-between gap-4 py-4">
             <div>
-              <p className="text-sm font-semibold text-slate-700">Product announcements</p>
-              <p className="mt-0.5 text-xs text-slate-500">Hear about new learning and platform features.</p>
+              <p className="text-sm font-semibold text-slate-700">Pengumuman produk</p>
+              <p className="mt-0.5 text-xs text-slate-500">Dapatkan informasi tentang fitur belajar dan platform terbaru.</p>
             </div>
-            <Toggle ariaLabel="Product announcements" checked={preferences.productAnnouncements} onChange={(value) => updatePreference('productAnnouncements', value)} />
+            <Toggle ariaLabel="Pengumuman produk" checked={preferences.productAnnouncements} onChange={(value) => updatePreference('productAnnouncements', value)} />
           </div>
           <div className="flex items-center justify-between gap-4 py-4">
             <div>
-              <p className="text-sm font-semibold text-slate-700">Weekly summary</p>
-              <p className="mt-0.5 text-xs text-slate-500">Get a weekly overview of your EduSpace activity.</p>
+              <p className="text-sm font-semibold text-slate-700">Ringkasan mingguan</p>
+              <p className="mt-0.5 text-xs text-slate-500">Dapatkan ringkasan aktivitas EduSpace setiap minggu.</p>
             </div>
-            <Toggle ariaLabel="Weekly summary" checked={preferences.weeklySummary} onChange={(value) => updatePreference('weeklySummary', value)} />
+            <Toggle ariaLabel="Ringkasan mingguan" checked={preferences.weeklySummary} onChange={(value) => updatePreference('weeklySummary', value)} />
           </div>
         </div>
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
           <span role="status" className="inline-flex items-center gap-1.5 text-xs font-medium text-green">
-            {saved && <><CheckCircle2 className="w-4 h-4" /> Preferences saved</>}
+            {saved && <><CheckCircle2 className="w-4 h-4" /> Preferensi tersimpan</>}
           </span>
           <Button
             type="button"
@@ -142,14 +142,14 @@ export const AccountSettingsPage: React.FC = () => {
             leftIcon={<Save className="w-4 h-4" />}
             onClick={savePreferences}
           >
-            Save preferences
+            Simpan preferensi
           </Button>
         </div>
       </Card>
 
       <div className="flex items-center gap-2 rounded-xl border border-blue/15 bg-soft-blue/30 px-4 py-3 text-xs text-slate-600">
         <Bell className="w-4 h-4 shrink-0 text-blue" />
-        Preferences are saved on this device for your current role.
+        Preferensi disimpan di perangkat ini untuk peran akunmu.
       </div>
     </div>
   );

@@ -55,7 +55,7 @@ export const Alert: React.FC<AlertProps> = ({
           type="button"
           onClick={onClose}
           className="text-slate-400 hover:text-slate-600 focus:outline-none p-1"
-          aria-label="Close alert"
+          aria-label="Tutup pemberitahuan"
         >
           <X className="w-4 h-4" />
         </button>
@@ -63,4 +63,3 @@ export const Alert: React.FC<AlertProps> = ({
     </div>
   );
 };
-

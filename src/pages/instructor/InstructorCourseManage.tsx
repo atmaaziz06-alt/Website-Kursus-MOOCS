@@ -40,17 +40,17 @@ export const InstructorCourseManage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('info');
   const [courseTitle, setCourseTitle] = useState(course.title);
   const [synopsis, setSynopsis] = useState(
-    'A comprehensive bootcamp designed to teach modern full-stack web development with React 18, TypeScript, Node.js, and containerized microservices.'
+    'Bootcamp komprehensif untuk mempelajari pengembangan web full-stack modern dengan React 18, TypeScript, Node.js, dan microservices berbasis container.'
   );
 
   // Curriculum draggable modules state
   const [modules, setModules] = useState([
-    { id: 'm-1', title: 'Module 1: Web Foundations & Semantic HTML5', status: 'Complete', badgeColor: 'active' },
-    { id: 'm-2', title: 'Module 2: JavaScript Modern ES6+ & Asynchronous Programming', status: 'Complete', badgeColor: 'active' },
-    { id: 'm-3', title: 'Module 3: TypeScript for Modern Frontend Applications', status: 'Complete', badgeColor: 'active' },
-    { id: 'm-4', title: 'Module 4: React & Frontend Architecture (Active Cohort)', status: 'Active Module', badgeColor: 'preview-free' },
-    { id: 'm-5', title: 'Module 5: Backend Microservices with Node.js & Prisma', status: 'In Review', badgeColor: 'in-review' },
-    { id: 'm-6', title: 'Module 6: Cloud Deployments & CI/CD Pipelines', status: 'Draft', badgeColor: 'draft' },
+    { id: 'm-1', title: 'Modul 1: Dasar Web & Semantic HTML5', status: 'Selesai', badgeColor: 'active' },
+    { id: 'm-2', title: 'Modul 2: JavaScript ES6+ Modern & Pemrograman Asinkron', status: 'Selesai', badgeColor: 'active' },
+    { id: 'm-3', title: 'Modul 3: TypeScript untuk Aplikasi Frontend Modern', status: 'Selesai', badgeColor: 'active' },
+    { id: 'm-4', title: 'Modul 4: Arsitektur React & Frontend (Angkatan Aktif)', status: 'Modul Aktif', badgeColor: 'preview-free' },
+    { id: 'm-5', title: 'Modul 5: Microservices Backend dengan Node.js & Prisma', status: 'Sedang Ditinjau', badgeColor: 'in-review' },
+    { id: 'm-6', title: 'Modul 6: Deployment Cloud & Pipeline CI/CD', status: 'Draf', badgeColor: 'draft' },
   ]);
 
   // Drag and drop handler
@@ -75,10 +75,10 @@ export const InstructorCourseManage: React.FC = () => {
   const [studentSearch, setStudentSearch] = useState('');
 
   const enrolledStudents = [
-    { name: 'Dian Paramitha', avatarId: 'dian-paramitha', enrolledDate: '12 Jan 2025', progress: 85, quizAvg: 92.4, lastActive: '2 hours ago' },
-    { name: 'Ahmad Fauzi', avatarId: 'ahmad-fauzi', enrolledDate: '18 Jan 2025', progress: 65, quizAvg: 88.0, lastActive: 'Yesterday' },
-    { name: 'Budi Santoso', avatarId: 'budi-santoso', enrolledDate: '05 Jan 2025', progress: 100, isCompleted: true, quizAvg: 95.0, lastActive: '3 days ago' },
-    { name: 'Sarah Jenkins', avatarId: 'usr-84920', enrolledDate: '22 Feb 2025', progress: 40, quizAvg: 78.5, lastActive: '5 days ago', isAtRisk: true },
+    { name: 'Dian Paramitha', avatarId: 'dian-paramitha', enrolledDate: '12 Jan 2025', progress: 85, quizAvg: 92.4, lastActive: '2 jam lalu' },
+    { name: 'Ahmad Fauzi', avatarId: 'ahmad-fauzi', enrolledDate: '18 Jan 2025', progress: 65, quizAvg: 88.0, lastActive: 'Kemarin' },
+    { name: 'Budi Santoso', avatarId: 'budi-santoso', enrolledDate: '05 Jan 2025', progress: 100, isCompleted: true, quizAvg: 95.0, lastActive: '3 hari lalu' },
+    { name: 'Sarah Jenkins', avatarId: 'usr-84920', enrolledDate: '22 Feb 2025', progress: 40, quizAvg: 78.5, lastActive: '5 hari lalu', isAtRisk: true },
   ];
 
   return (
@@ -89,10 +89,10 @@ export const InstructorCourseManage: React.FC = () => {
           {/* Breadcrumb */}
           <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
             <Link to="/instructor" className="hover:text-navy font-semibold">
-              ← My Courses
+              ← Kursus Saya
             </Link>
             <span>/</span>
-            <span className="text-slate-400">Web Development Bootcamp 2025</span>
+            <span className="text-slate-400">Bootcamp Pengembangan Web 2025</span>
           </div>
 
           <div className="flex items-center gap-3 flex-wrap">
@@ -100,14 +100,14 @@ export const InstructorCourseManage: React.FC = () => {
               Kelola Kursus: Web Dev Bootcamp
             </h1>
             <span className="px-2.5 py-0.5 rounded-full bg-soft-blue text-blue text-xs font-bold uppercase">
-              COHORT 2025
+              ANGKATAN 2025
             </span>
             <Badge variant="active" size="xs">
-              Published (v2.4)
+              Terbit (v2.4)
             </Badge>
           </div>
           <span className="text-xs text-slate-400 block mt-1">
-            Last edited 15 mins ago by John Smith
+            Terakhir diedit 15 menit lalu oleh John Smith
           </span>
         </div>
 
@@ -118,13 +118,13 @@ export const InstructorCourseManage: React.FC = () => {
             size="sm"
             onClick={() => navigate('/courses/web-development-bootcamp-2025')}
           >
-            Preview as Student
+            Pratinjau sebagai Peserta
           </Button>
           <Button variant="outline" size="sm">
-            Save as Draft
+            Simpan sebagai Draf
           </Button>
           <Button variant="orange" size="sm">
-            Publish Changes
+            Terbitkan Perubahan
           </Button>
         </div>
       </div>
@@ -132,11 +132,11 @@ export const InstructorCourseManage: React.FC = () => {
       {/* 2. TAB PILLS */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-border">
         {[
-          { id: 'info', label: 'Course Info' },
-          { id: 'curriculum', label: 'Curriculum & Materials (38 Lessons)' },
-          { id: 'quizzes', label: 'Quizzes & Assessments (4 Quizzes)' },
-          { id: 'students', label: 'Enrolled Students (1,450)' },
-          { id: 'analytics', label: 'Analytics & Performance' },
+          { id: 'info', label: 'Info Kursus' },
+          { id: 'curriculum', label: 'Kurikulum & Materi (38 Pelajaran)' },
+          { id: 'quizzes', label: 'Kuis & Evaluasi (4 Kuis)' },
+          { id: 'students', label: 'Peserta Terdaftar (1.450)' },
+          { id: 'analytics', label: 'Analitik & Performa' },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -163,37 +163,37 @@ export const InstructorCourseManage: React.FC = () => {
               <div className="flex items-center gap-2">
                 <div className="w-1.5 h-5 rounded-full bg-blue" />
                 <h3 className="text-base font-bold text-text-heading">
-                  Course Basic Information
+                  Informasi Dasar Kursus
                 </h3>
               </div>
               <span className="px-2.5 py-0.5 rounded-full bg-soft-blue text-blue text-[11px] font-bold uppercase">
-                Accredited Syllabus
+                Silabus Terakreditasi
               </span>
             </div>
 
             <div className="space-y-4">
               <Input
-                label="Course Title (Required)*"
+                label="Judul Kursus (Wajib)*"
                 value={courseTitle}
                 onChange={(e) => setCourseTitle(e.target.value)}
               />
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Select
-                  label="Category"
+                  label="Kategori"
                   options={[
-                    { value: 'development', label: 'Development & Engineering' },
-                    { value: 'technology', label: 'Technology & Cloud' },
-                    { value: 'design', label: 'Design & UX' },
+                    { value: 'development', label: 'Pemrograman & Rekayasa' },
+                    { value: 'technology', label: 'Teknologi & Cloud' },
+                    { value: 'design', label: 'Desain & UX' },
                   ]}
                   defaultValue="development"
                 />
                 <Select
-                  label="Difficulty Level"
+                  label="Tingkat Kesulitan"
                   options={[
-                    { value: 'beginner', label: 'Beginner to Intermediate' },
-                    { value: 'intermediate', label: 'Intermediate' },
-                    { value: 'advanced', label: 'Advanced' },
+                    { value: 'beginner', label: 'Pemula hingga Menengah' },
+                    { value: 'intermediate', label: 'Menengah' },
+                    { value: 'advanced', label: 'Lanjutan' },
                   ]}
                   defaultValue="beginner"
                 />
@@ -201,11 +201,11 @@ export const InstructorCourseManage: React.FC = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input
-                  label="Estimated Duration & Pacing"
+                  label="Perkiraan Durasi & Tempo"
                   defaultValue="24 Hours (8 Weeks recommended pacing)"
                 />
                 <Input
-                  label="Instruction Language"
+                  label="Bahasa Pengantar"
                   defaultValue="Bahasa Indonesia & English"
                 />
               </div>
@@ -228,21 +228,21 @@ export const InstructorCourseManage: React.FC = () => {
               {/* Rich Text Style Editor for Comprehensive Syllabus */}
               <div>
                 <label className="block text-xs font-semibold text-text-heading mb-1.5 uppercase tracking-wide">
-                  Comprehensive Syllabus & Learning Outcomes
+                  Silabus Komprehensif & Capaian Pembelajaran
                 </label>
                 <div className="rounded-xl border border-border overflow-hidden bg-white">
                   {/* Toolbar */}
                   <div className="p-2 border-b border-border bg-slate-50 flex items-center gap-1 flex-wrap">
                     {[
-                      { icon: <Bold className="w-3.5 h-3.5" />, title: 'Bold' },
-                      { icon: <Italic className="w-3.5 h-3.5" />, title: 'Italic' },
-                      { icon: <Strikethrough className="w-3.5 h-3.5" />, title: 'Strike' },
-                      { icon: <Heading2 className="w-3.5 h-3.5" />, title: 'H2' },
-                      { icon: <Heading3 className="w-3.5 h-3.5" />, title: 'H3' },
-                      { icon: <List className="w-3.5 h-3.5" />, title: 'Bullet List' },
-                      { icon: <Code className="w-3.5 h-3.5" />, title: 'Code block' },
-                      { icon: <LinkIcon className="w-3.5 h-3.5" />, title: 'Link' },
-                      { icon: <ImageIcon className="w-3.5 h-3.5" />, title: 'Media image' },
+                      { icon: <Bold className="w-3.5 h-3.5" />, title: 'Tebal' },
+                      { icon: <Italic className="w-3.5 h-3.5" />, title: 'Miring' },
+                      { icon: <Strikethrough className="w-3.5 h-3.5" />, title: 'Coret' },
+                      { icon: <Heading2 className="w-3.5 h-3.5" />, title: 'Judul 2' },
+                      { icon: <Heading3 className="w-3.5 h-3.5" />, title: 'Judul 3' },
+                      { icon: <List className="w-3.5 h-3.5" />, title: 'Daftar Berpoin' },
+                      { icon: <Code className="w-3.5 h-3.5" />, title: 'Blok kode' },
+                      { icon: <LinkIcon className="w-3.5 h-3.5" />, title: 'Tautan' },
+                      { icon: <ImageIcon className="w-3.5 h-3.5" />, title: 'Gambar media' },
                     ].map((tool, idx) => (
                       <button
                         key={idx}
@@ -270,13 +270,13 @@ export const InstructorCourseManage: React.FC = () => {
               {/* Course Showcase Banner & Thumbnail upload area */}
               <div className="pt-4 border-t border-border">
                 <label className="block text-xs font-semibold text-text-heading mb-2 uppercase tracking-wide">
-                  Course Showcase Banner & Thumbnail
+                  Banner & Gambar Mini Kursus
                 </label>
                 <div className="flex flex-col sm:flex-row items-center gap-6 p-4 rounded-xl border border-dashed border-border bg-slate-50">
                   <div className="w-40 aspect-[16/9] rounded-lg overflow-hidden bg-slate-200 border border-border shadow-sm shrink-0">
                     <img
                       src={courseMedia.thumbnail}
-                      alt="Thumbnail preview"
+                      alt="Pratinjau gambar mini"
                       className="w-full h-full object-cover"
                     />
                   </div>
@@ -285,17 +285,17 @@ export const InstructorCourseManage: React.FC = () => {
                       web-dev-bootcamp-showcase-2025.jpg
                     </span>
                     <span className="text-[11px] text-slate-400 block mb-3">
-                      High-resolution 1920x1080 • Managed via centralized media repository
+                      Resolusi tinggi 1920x1080 • Dikelola melalui repositori media terpusat
                     </span>
                     <div className="flex items-center justify-center sm:justify-start gap-3">
                       <Button variant="outline" size="sm" className="text-blue border-blue/30">
-                        Replace Image
+                        Ganti Gambar
                       </Button>
                       <button
                         type="button"
                         className="text-xs font-semibold text-red hover:underline"
                       >
-                        Remove
+                        Hapus
                       </button>
                     </div>
                   </div>
@@ -311,18 +311,18 @@ export const InstructorCourseManage: React.FC = () => {
                 <div className="w-1.5 h-5 rounded-full bg-orange" />
                 <div>
                   <h3 className="text-base font-bold text-text-heading">
-                    Course Curriculum & Learning Materials
+                    Kurikulum Kursus & Materi Pembelajaran
                   </h3>
-                  <span className="text-xs text-slate-400">6 Sections Total • Drag modules to reorder</span>
+                  <span className="text-xs text-slate-400">Total 6 Bagian • Seret modul untuk mengurutkan</span>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm">
-                  Reorder Sections
+                  Urutkan Ulang Bagian
                 </Button>
                 <Button variant="navy" size="sm" leftIcon={<Plus className="w-3.5 h-3.5" />}>
-                  Add Material
+                  Tambah Materi
                 </Button>
               </div>
             </div>
@@ -364,9 +364,9 @@ export const InstructorCourseManage: React.FC = () => {
                       <div className="flex items-center justify-between text-xs p-2 rounded-lg bg-slate-50">
                         <div className="flex items-center gap-2">
                           <Play className="w-3.5 h-3.5 text-blue" />
-                          <span>15. Deep Dive into useState, useEffect & Custom Hooks</span>
+                          <span>15. Pendalaman useState, useEffect & Custom Hooks</span>
                           <span className="px-1.5 py-0.5 rounded bg-soft-blue text-blue text-[9px] font-bold">
-                            Free Preview
+                            Pratinjau Gratis
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
@@ -400,7 +400,7 @@ export const InstructorCourseManage: React.FC = () => {
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="text-slate-400">CodeLab</span>
+                          <span className="text-slate-400">Lab Kode</span>
                           <Edit className="w-3 h-3 text-slate-400 hover:text-navy cursor-pointer" />
                           <Trash2 className="w-3 h-3 text-slate-400 hover:text-red cursor-pointer" />
                         </div>
@@ -479,7 +479,7 @@ export const InstructorCourseManage: React.FC = () => {
                   type="text"
                   value={studentSearch}
                   onChange={(e) => setStudentSearch(e.target.value)}
-                  placeholder="Search student name..."
+                  placeholder="Cari nama peserta..."
                   className="w-full bg-slate-50 text-xs rounded-xl border border-border px-3 py-2 focus:outline-none focus:border-blue"
                 />
               </div>
@@ -490,11 +490,11 @@ export const InstructorCourseManage: React.FC = () => {
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="border-b border-border text-slate-400 font-bold uppercase tracking-wider">
-                    <th className="pb-3">STUDENT</th>
-                    <th className="pb-3">ENROLLED DATE</th>
-                    <th className="pb-3 w-36">PROGRESS</th>
-                    <th className="pb-3">QUIZ AVG</th>
-                    <th className="pb-3">LAST ACTIVE</th>
+                    <th className="pb-3">PESERTA</th>
+                    <th className="pb-3">TANGGAL DAFTAR</th>
+                    <th className="pb-3 w-36">PROGRES</th>
+                    <th className="pb-3">RATA-RATA KUIS</th>
+                    <th className="pb-3">AKTIF TERAKHIR</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
@@ -532,7 +532,7 @@ export const InstructorCourseManage: React.FC = () => {
           {/* Right Card 1: Module Quizzes */}
           <Card className="p-6">
             <div className="flex items-center justify-between pb-3 border-b border-border mb-4">
-              <h3 className="text-sm font-bold text-text-heading">Module Quizzes</h3>
+              <h3 className="text-sm font-bold text-text-heading">Kuis Modul</h3>
               <Button variant="orange" size="sm" leftIcon={<Plus className="w-3.5 h-3.5" />}>
                 Add Quiz
               </Button>
@@ -545,22 +545,22 @@ export const InstructorCourseManage: React.FC = () => {
                   <span className="text-xs font-bold text-navy">
                     Quiz 1: React & Frontend Architecture
                   </span>
-                  <Badge variant="active" size="xs">Active</Badge>
+                  <Badge variant="active" size="xs">Aktif</Badge>
                 </div>
                 <p className="text-[11px] text-slate-500 mb-2">
                   10 Questions • 15 Mins Limit • Min Pass 80%
                 </p>
                 <div className="text-xs text-slate-600 font-semibold mb-3 flex items-center justify-between">
-                  <span>Submissions: <strong>1,420</strong></span>
-                  <span>Avg: <strong>86.5%</strong></span>
-                  <span className="text-green">Pass: <strong>92%</strong></span>
+                  <span>Jawaban: <strong>1.420</strong></span>
+                  <span>Rata-rata: <strong>86,5%</strong></span>
+                  <span className="text-green">Lulus: <strong>92%</strong></span>
                 </div>
                 <div className="flex items-center gap-3 text-xs font-bold text-blue">
-                  <a href="#analytics" className="hover:underline">View Analytics</a>
+                  <a href="#analytics" className="hover:underline">Lihat Analitik</a>
                   <span>•</span>
-                  <a href="#edit" className="hover:underline">Edit</a>
+                  <a href="#edit" className="hover:underline">Ubah</a>
                   <span>•</span>
-                  <a href="#dup" className="hover:underline">Duplicate</a>
+                  <a href="#dup" className="hover:underline">Duplikat</a>
                 </div>
               </div>
 
@@ -570,15 +570,15 @@ export const InstructorCourseManage: React.FC = () => {
                   <span className="text-xs font-bold text-text-heading">
                     Quiz 2: JavaScript Modern ES6+ & Async
                   </span>
-                  <Badge variant="active" size="xs">Active</Badge>
+                  <Badge variant="active" size="xs">Aktif</Badge>
                 </div>
                 <p className="text-[11px] text-slate-500 mb-2">
                   12 Questions • 20 Mins Limit • Min Pass 75%
                 </p>
                 <div className="flex items-center gap-3 text-xs font-bold text-blue">
-                  <a href="#analytics" className="hover:underline">View Analytics</a>
+                  <a href="#analytics" className="hover:underline">Lihat Analitik</a>
                   <span>•</span>
-                  <a href="#edit" className="hover:underline">Edit</a>
+                  <a href="#edit" className="hover:underline">Ubah</a>
                 </div>
               </div>
 
@@ -588,13 +588,13 @@ export const InstructorCourseManage: React.FC = () => {
                   <span className="text-xs font-bold text-text-heading">
                     Quiz 3: Full-Stack Node.js & Schemas
                   </span>
-                  <Badge variant="draft" size="xs">Draft</Badge>
+                  <Badge variant="draft" size="xs">Draf</Badge>
                 </div>
                 <p className="text-[11px] text-amber-800 mb-2 font-medium">
                   Unpublished changes • In preparation for Week 6
                 </p>
                 <div className="flex items-center gap-3 text-xs font-bold text-orange">
-                  <a href="#edit" className="hover:underline">Continue Editing →</a>
+                  <a href="#edit" className="hover:underline">Lanjutkan Mengedit →</a>
                 </div>
               </div>
             </div>
@@ -607,21 +607,21 @@ export const InstructorCourseManage: React.FC = () => {
             </h3>
             <div className="flex items-center gap-2 text-xs text-green font-bold mb-4">
               <span className="w-2 h-2 rounded-full bg-green animate-pulse" />
-              <span>Weekly Active Learners +18.4% vs last week</span>
+              <span>Peserta Aktif Mingguan +18,4% dibanding minggu lalu</span>
             </div>
 
             <div className="space-y-3 pt-2 border-t border-border">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-500">Avg Watch Time:</span>
-                <strong className="text-navy">34.2 mins / session</strong>
+                <span className="text-slate-500">Rata-rata Durasi Tonton:</span>
+                <strong className="text-navy">34,2 menit / sesi</strong>
               </div>
               <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-500">Assignment Return:</span>
-                <strong className="text-navy">94.8% on-time</strong>
+                <span className="text-slate-500">Pengumpulan Tugas:</span>
+                <strong className="text-navy">94,8% tepat waktu</strong>
               </div>
               <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-500">Questions Raised:</span>
-                <strong className="text-navy">128 in Q&A forum</strong>
+                <span className="text-slate-500">Pertanyaan Diajukan:</span>
+                <strong className="text-navy">128 di forum tanya jawab</strong>
               </div>
             </div>
           </Card>
@@ -652,4 +652,3 @@ export const InstructorCourseManage: React.FC = () => {
     </div>
   );
 };
-

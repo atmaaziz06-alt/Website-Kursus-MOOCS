@@ -23,6 +23,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useCourses } from '../../context/CourseContext';
 import { media, getCourseMedia, getInstructorPhoto } from '../../config/media';
 import { mockCourses } from '../../data/mockData';
+import { translateCategory } from '../../config/locale';
 
 export const StudentDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -52,7 +53,7 @@ export const StudentDashboard: React.FC = () => {
       {/* Dev Toggle for Empty State */}
       <div className="flex items-center justify-between p-3 rounded-xl bg-white border border-border text-xs">
         <span className="font-semibold text-slate-600">
-          State Mode: <strong className="text-navy">{isDevEmptyState ? 'Empty State Active' : 'Normal Populated State'}</strong>
+          Mode Tampilan: <strong className="text-navy">{isDevEmptyState ? 'Tampilan Kosong Aktif' : 'Tampilan Normal'}</strong>
         </span>
         <button
           type="button"
@@ -60,21 +61,21 @@ export const StudentDashboard: React.FC = () => {
           className="text-xs font-bold text-blue hover:text-navy underline flex items-center gap-1"
         >
           <RotateCcw className="w-3.5 h-3.5" />
-          <span>Toggle Empty State Variant</span>
+          <span>Ubah Tampilan Kosong</span>
         </button>
       </div>
 
       {isDevEmptyState ? (
         <Card className="p-12">
           <EmptyState
-            title="You haven't enrolled in any course yet"
-            description="Explore our catalog of 1,200+ industry-accredited courses and bootcamps to begin your personalized learning path today."
+            title="Kamu belum mengikuti kursus apa pun"
+            description="Jelajahi lebih dari 1.200 kursus dan bootcamp terakreditasi industri untuk memulai perjalanan belajarmu."
             primaryAction={{
-              label: 'Browse Courses →',
+              label: 'Jelajahi Kursus →',
               onClick: () => navigate('/courses'),
             }}
             secondaryAction={{
-              label: 'Explore Learning Paths',
+              label: 'Jelajahi Jalur Belajar',
               onClick: () => navigate('/courses'),
             }}
           />
@@ -87,15 +88,15 @@ export const StudentDashboard: React.FC = () => {
               {/* Left Column (8 cols) */}
               <div className="lg:col-span-8 z-10">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 text-white border border-white/20 text-[10px] font-bold uppercase tracking-wider mb-4">
-                  <span>STUDENT DASHBOARD • SEMESTER 2025</span>
+                  <span>DASHBOR PESERTA • SEMESTER 2025</span>
                 </div>
 
                 <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight mb-2">
-                  Welcome back, {user?.name?.split(' ')[0] || 'Dian'}! 👋
+                  Selamat datang kembali, {user?.name?.split(' ')[0] || 'Dian'}! 👋
                 </h1>
 
                 <p className="text-slate-200 text-xs sm:text-sm leading-relaxed mb-6 max-w-xl">
-                  You've completed 72% of your weekly learning goals. Keep up the great momentum and achieve your next certification milestone!
+                  Kamu telah mencapai 72% dari target belajar mingguan. Pertahankan semangatmu dan raih sertifikasi berikutnya!
                 </p>
 
                 {/* Inner Translucent Strip */}
@@ -105,7 +106,7 @@ export const StudentDashboard: React.FC = () => {
                       <Video className="w-4 h-4 text-white" />
                     </div>
                     <span className="text-xs font-semibold text-white">
-                      Next live session: <strong>Web Architecture Discussion</strong> (Today at 19:30 WIB)
+                      Sesi langsung berikutnya: <strong>Diskusi Arsitektur Web</strong> (Hari ini pukul 19.30 WIB)
                     </span>
                   </div>
                   <button
@@ -113,7 +114,7 @@ export const StudentDashboard: React.FC = () => {
                     onClick={() => navigate('/learn/web-development-bootcamp-2025/les-15')}
                     className="text-xs font-bold text-orange hover:text-white transition-colors flex items-center gap-1 shrink-0"
                   >
-                    <span>Join Room</span>
+                    <span>Gabung Sesi</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -124,13 +125,13 @@ export const StudentDashboard: React.FC = () => {
                 <div className="relative w-44 h-44 rounded-3xl overflow-hidden border-4 border-white/40 shadow-soft-lg">
                   <img
                     src={media.hero.studentPortrait}
-                    alt="Student Portrait"
+                    alt="Foto Peserta"
                     className="w-full h-full object-cover"
                   />
                   {/* Floating Streak Card */}
                   <div className="absolute bottom-2 right-2 bg-white text-navy px-3 py-1.5 rounded-xl shadow-md border border-border flex items-center gap-1.5">
                     <Flame className="w-4 h-4 text-orange fill-orange" />
-                    <span className="text-xs font-extrabold">STREAK 14 Days</span>
+                    <span className="text-xs font-extrabold">14 Hari Berturut-turut</span>
                   </div>
                 </div>
               </div>
@@ -140,31 +141,31 @@ export const StudentDashboard: React.FC = () => {
           {/* 2. FOUR STAT CARDS */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             <StatCard
-              label="Enrolled Courses"
-              value="6 Courses"
-              subtext="2 currently active"
+              label="Kursus Diikuti"
+              value="6 Kursus"
+              subtext="2 sedang berlangsung"
               icon={<BookOpen className="w-5 h-5" />}
               iconVariant="soft-blue"
             />
             <StatCard
-              label="Completed Courses"
-              value="3 Courses"
-              subtext="3 verified certificates"
+              label="Kursus Selesai"
+              value="3 Kursus"
+              subtext="3 sertifikat terverifikasi"
               icon={<Award className="w-5 h-5" />}
               iconVariant="green"
             />
             <StatCard
-              label="Average Quiz Score"
+              label="Rata-rata Nilai Kuis"
               value="92.4%"
-              subtext="Aggregated score"
-              trend={{ value: '+4.2% from last month', isPositive: true }}
+              subtext="Nilai rata-rata"
+              trend={{ value: '+4,2% dari bulan lalu', isPositive: true }}
               icon={<TrendingUp className="w-5 h-5" />}
               iconVariant="orange"
             />
             <StatCard
-              label="Learning Hours"
-              value="48.5 hrs"
-              subtext="12.4 hrs logged this week"
+              label="Jam Belajar"
+              value="48,5 jam"
+              subtext="12,4 jam minggu ini"
               icon={<Clock className="w-5 h-5" />}
               iconVariant="navy"
             />
@@ -177,10 +178,10 @@ export const StudentDashboard: React.FC = () => {
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-2">
                 <div className="flex items-center gap-3">
                   <h2 className="text-xl font-extrabold text-text-heading">
-                    My Enrolled Courses
+                    Kursus yang Saya Ikuti
                   </h2>
                   <span className="px-2.5 py-0.5 rounded-full bg-soft-blue text-blue text-xs font-bold">
-                    6 Total
+                    Total 6
                   </span>
                 </div>
 
@@ -195,7 +196,7 @@ export const StudentDashboard: React.FC = () => {
                         : 'text-slate-600 hover:text-navy'
                     }`}
                   >
-                    All ({enrolledCourses.length})
+                    Semua ({enrolledCourses.length})
                   </button>
                   <button
                     type="button"
@@ -206,7 +207,7 @@ export const StudentDashboard: React.FC = () => {
                         : 'text-slate-600 hover:text-navy'
                     }`}
                   >
-                    In Progress ({inProgressCourses.length})
+                    Sedang Berlangsung ({inProgressCourses.length})
                   </button>
                   <button
                     type="button"
@@ -217,7 +218,7 @@ export const StudentDashboard: React.FC = () => {
                         : 'text-slate-600 hover:text-navy'
                     }`}
                   >
-                    Completed ({completedCourses.length})
+                    Selesai ({completedCourses.length})
                   </button>
                 </div>
               </div>
@@ -245,7 +246,7 @@ export const StudentDashboard: React.FC = () => {
                         />
                         <div className="absolute top-2 left-2">
                           <Badge variant="technology" size="xs">
-                            {courseDetail?.category || 'Development'}
+                            {translateCategory(courseDetail?.category || 'Development')}
                           </Badge>
                         </div>
                       </div>
@@ -268,7 +269,7 @@ export const StudentDashboard: React.FC = () => {
                             <button
                               type="button"
                               className="text-slate-400 hover:text-orange"
-                              aria-label="Bookmark"
+                              aria-label="Simpan kursus"
                             >
                               <Bookmark className="w-4 h-4" />
                             </button>
@@ -281,7 +282,7 @@ export const StudentDashboard: React.FC = () => {
 
                           {/* Current Module line in blue */}
                           <p className="text-xs font-semibold text-blue mb-3 truncate">
-                            {item.isCompleted ? 'Course Fully Completed' : item.currentLessonTitle}
+                            {item.isCompleted ? 'Kursus telah diselesaikan' : item.currentLessonTitle}
                           </p>
 
                           {/* Thin progress bar */}
@@ -295,12 +296,12 @@ export const StudentDashboard: React.FC = () => {
                           {/* Meta line */}
                           <div className="flex items-center justify-between text-xs text-slate-500 flex-wrap gap-2">
                             <span>
-                              <strong>{item.progressPercent}%</strong> Completed
+                              <strong>{item.progressPercent}%</strong> Selesai
                             </span>
                             <span>
-                              {item.completedLessons}/{item.totalLessons} Lessons Completed
+                              {item.completedLessons}/{item.totalLessons} Pelajaran Selesai
                             </span>
-                            <span>{item.remainingHours} remaining</span>
+                            <span>{item.remainingHours} tersisa</span>
                           </div>
                         </div>
 
@@ -313,14 +314,14 @@ export const StudentDashboard: React.FC = () => {
                                 size="sm"
                                 onClick={() => navigate(`/courses/${item.courseSlug}`)}
                               >
-                                Review Syllabus
+                                Tinjau Silabus
                               </Button>
                               <Button
                                 variant="navy"
                                 size="sm"
                                 leftIcon={<Download className="w-3.5 h-3.5" />}
                               >
-                                Download Certificate
+                                Unduh Sertifikat
                               </Button>
                             </>
                           ) : (
@@ -330,7 +331,7 @@ export const StudentDashboard: React.FC = () => {
                               onClick={() => navigate(`/learn/${item.courseSlug}/${item.currentLessonId}`)}
                               rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
                             >
-                              Continue Learning
+                              Lanjutkan Belajar
                             </Button>
                           )}
                         </div>
@@ -346,15 +347,15 @@ export const StudentDashboard: React.FC = () => {
               {/* Card 1: Deadlines & Quizzes */}
               <Card className="p-6">
                 <div className="flex items-center justify-between mb-4 pb-2 border-b border-border">
-                  <h3 className="text-sm font-bold text-text-heading">Deadlines & Quizzes</h3>
+                  <h3 className="text-sm font-bold text-text-heading">Tenggat & Kuis</h3>
                   <Calendar className="w-4 h-4 text-slate-400" />
                 </div>
                 <div className="space-y-4">
                   {/* Quiz item with red deadline & orange Start Quiz */}
                   <div className="p-3.5 rounded-xl border border-red/20 bg-red-tint/50">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-bold text-red">Tomorrow, 23:59</span>
-                      <Badge variant="orange" size="xs">Module 4 Quiz</Badge>
+                      <span className="text-xs font-bold text-red">Besok, 23.59</span>
+                      <Badge variant="orange" size="xs">Kuis Modul 4</Badge>
                     </div>
                     <h4 className="text-xs font-bold text-text-heading mb-2">
                       React Hooks & State Management
@@ -365,21 +366,21 @@ export const StudentDashboard: React.FC = () => {
                       fullWidth
                       onClick={() => navigate('/quiz/quiz-react-hooks')}
                     >
-                      Start Quiz
+                      Mulai Kuis
                     </Button>
                   </div>
 
                   {/* Assignment item with Details */}
                   <div className="p-3.5 rounded-xl border border-border bg-slate-50/70">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs text-slate-500 font-semibold">Friday, 18:00</span>
-                      <span className="text-[10px] uppercase font-bold text-slate-400">Assignment</span>
+                      <span className="text-xs text-slate-500 font-semibold">Jumat, 18.00</span>
+                      <span className="text-[10px] uppercase font-bold text-slate-400">Tugas</span>
                     </div>
                     <h4 className="text-xs font-bold text-text-heading mb-2">
-                      Full-Stack Blog REST API Capstone
+                      Proyek Akhir REST API Blog Full-Stack
                     </h4>
                     <Button variant="outline" size="sm" fullWidth>
-                      Details
+                      Rincian
                     </Button>
                   </div>
                 </div>
@@ -388,37 +389,37 @@ export const StudentDashboard: React.FC = () => {
               {/* Card 2: Recent Alerts */}
               <Card className="p-6">
                 <div className="flex items-center justify-between mb-4 pb-2 border-b border-border">
-                  <h3 className="text-sm font-bold text-text-heading">Recent Alerts</h3>
+                  <h3 className="text-sm font-bold text-text-heading">Pemberitahuan Terbaru</h3>
                   <Bell className="w-4 h-4 text-slate-400" />
                 </div>
                 <div className="space-y-3">
                   <div className="flex items-start gap-3 text-xs">
                     <span className="w-2 h-2 rounded-full bg-blue shrink-0 mt-1.5" />
                     <div className="flex-1">
-                      <div className="font-bold text-text-heading">Module 4 Code Solution Published</div>
-                      <div className="text-slate-400 text-[11px] mt-0.5">2 hours ago</div>
+                      <div className="font-bold text-text-heading">Solusi Kode Modul 4 Telah Terbit</div>
+                      <div className="text-slate-400 text-[11px] mt-0.5">2 jam lalu</div>
                     </div>
                     <button type="button" className="text-[11px] font-semibold text-blue hover:underline">
-                      Mark read
+                      Tandai dibaca
                     </button>
                   </div>
 
                   <div className="flex items-start gap-3 text-xs">
                     <span className="w-2 h-2 rounded-full bg-blue shrink-0 mt-1.5" />
                     <div className="flex-1">
-                      <div className="font-bold text-text-heading">Office Hours Live Link Active</div>
-                      <div className="text-slate-400 text-[11px] mt-0.5">5 hours ago</div>
+                      <div className="font-bold text-text-heading">Tautan Sesi Tanya Jawab Aktif</div>
+                      <div className="text-slate-400 text-[11px] mt-0.5">5 jam lalu</div>
                     </div>
                     <button type="button" className="text-[11px] font-semibold text-blue hover:underline">
-                      Mark read
+                      Tandai dibaca
                     </button>
                   </div>
 
                   <div className="flex items-start gap-3 text-xs opacity-70">
                     <span className="w-2 h-2 rounded-full bg-slate-300 shrink-0 mt-1.5" />
                     <div className="flex-1">
-                      <div className="font-bold text-slate-600">Quiz 03 Graded (Passed 95%)</div>
-                      <div className="text-slate-400 text-[11px] mt-0.5">Yesterday</div>
+                      <div className="font-bold text-slate-600">Kuis 03 Dinilai (Lulus 95%)</div>
+                      <div className="text-slate-400 text-[11px] mt-0.5">Kemarin</div>
                     </div>
                   </div>
                 </div>
@@ -427,8 +428,8 @@ export const StudentDashboard: React.FC = () => {
               {/* Card 3: Weekly Study Breakdown (Donut Chart) */}
               <Card className="p-6">
                 <div className="flex items-center justify-between mb-3 pb-2 border-b border-border">
-                  <h3 className="text-sm font-bold text-text-heading">Weekly Study Breakdown</h3>
-                  <span className="text-xs text-slate-400 font-semibold">Target: 15h</span>
+                  <h3 className="text-sm font-bold text-text-heading">Rincian Belajar Mingguan</h3>
+                  <span className="text-xs text-slate-400 font-semibold">Target: 15 jam</span>
                 </div>
 
                 <div className="relative h-44 w-full flex items-center justify-center">
@@ -450,7 +451,7 @@ export const StudentDashboard: React.FC = () => {
                   {/* Center Text inside Donut */}
                   <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                     <span className="text-base font-extrabold text-text-heading">12.4h</span>
-                    <span className="text-[10px] text-slate-400 uppercase font-semibold">Logged</span>
+                    <span className="text-[10px] text-slate-400 uppercase font-semibold">Tercatat</span>
                   </div>
                 </div>
 
@@ -459,23 +460,23 @@ export const StudentDashboard: React.FC = () => {
                   <div>
                     <div className="flex items-center justify-center gap-1.5 mb-0.5">
                       <span className="w-2 h-2 rounded-full bg-blue" />
-                      <span className="text-[11px] font-bold text-slate-700">Web Dev</span>
+                      <span className="text-[11px] font-bold text-slate-700">Pengembangan Web</span>
                     </div>
-                    <span className="text-xs text-slate-500">8.0 hrs</span>
+                    <span className="text-xs text-slate-500">8,0 jam</span>
                   </div>
                   <div>
                     <div className="flex items-center justify-center gap-1.5 mb-0.5">
                       <span className="w-2 h-2 rounded-full bg-orange" />
                       <span className="text-[11px] font-bold text-slate-700">UI/UX</span>
                     </div>
-                    <span className="text-xs text-slate-500">3.2 hrs</span>
+                    <span className="text-xs text-slate-500">3,2 jam</span>
                   </div>
                   <div>
                     <div className="flex items-center justify-center gap-1.5 mb-0.5">
                       <span className="w-2 h-2 rounded-full bg-green" />
-                      <span className="text-[11px] font-bold text-slate-700">Data Prep</span>
+                      <span className="text-[11px] font-bold text-slate-700">Persiapan Data</span>
                     </div>
-                    <span className="text-xs text-slate-500">1.2 hrs</span>
+                    <span className="text-xs text-slate-500">1,2 jam</span>
                   </div>
                 </div>
               </Card>
@@ -486,4 +487,3 @@ export const StudentDashboard: React.FC = () => {
     </div>
   );
 };
-

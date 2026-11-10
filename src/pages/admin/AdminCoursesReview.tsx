@@ -7,50 +7,50 @@ export const AdminCoursesReview: React.FC = () => {
   const reviews = [
     {
       id: 'rev-1',
-      title: 'Full-Stack Next.js 15 & AI Agents',
+      title: 'Next.js 15 Full-Stack & Agen AI',
       slug: 'full-stack-nextjs-ai',
       instructor: 'John Smith',
       instructorId: 'john-smith',
       category: 'Development',
-      submittedDate: '10 May 2025',
+      submittedDate: '10 Mei 2025',
       lessonsCount: 36,
-      duration: '18.5 hrs',
+      duration: '18,5 jam',
       status: 'Pending QA',
     },
     {
       id: 'rev-2',
-      title: 'Deep Learning with PyTorch: From Tensors to LLMs',
+      title: 'Deep Learning dengan PyTorch: Dari Tensor hingga LLM',
       slug: 'deep-learning-pytorch',
       instructor: 'Dr. Siti Nurhaliza M.Cs.',
       instructorId: 'dr-siti',
       category: 'Technology',
-      submittedDate: '08 May 2025',
+      submittedDate: '8 Mei 2025',
       lessonsCount: 30,
-      duration: '28.0 hrs',
+      duration: '28 jam',
       status: 'Pending QA',
     },
     {
       id: 'rev-3',
-      title: 'Figma Design System Architecture: Variables & Tokens',
+      title: 'Arsitektur Sistem Desain Figma: Variables & Token',
       slug: 'figma-design-system',
       instructor: 'Sarah Jenkins',
       instructorId: 'sarah-jenkins',
       category: 'Design',
-      submittedDate: '05 May 2025',
+      submittedDate: '5 Mei 2025',
       lessonsCount: 24,
-      duration: '16.0 hrs',
+      duration: '16 jam',
       status: 'In Review',
     },
     {
       id: 'rev-4',
-      title: 'Cloud DevOps with Kubernetes: GitOps Workflows',
+      title: 'Cloud DevOps dengan Kubernetes: Alur Kerja GitOps',
       slug: 'cloud-devops-kubernetes',
       instructor: 'Marcus Vance',
       instructorId: 'marcus-vance',
       category: 'Technology',
-      submittedDate: '02 May 2025',
+      submittedDate: '2 Mei 2025',
       lessonsCount: 29,
-      duration: '24.0 hrs',
+      duration: '24 jam',
       status: 'In Review',
     },
   ];
@@ -59,8 +59,8 @@ export const AdminCoursesReview: React.FC = () => {
     <div className="max-w-[1200px] mx-auto space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-text-heading">Courses Awaiting QA & Accreditation</h1>
-          <p className="text-xs text-slate-500 mt-1">Review syllabus compliance, video assets, and interactive quizzes before publishing</p>
+          <h1 className="text-2xl font-extrabold text-text-heading">Kursus Menunggu Pemeriksaan & Akreditasi</h1>
+          <p className="text-xs text-slate-500 mt-1">Tinjau silabus, video, dan kuis interaktif sebelum kursus diterbitkan</p>
         </div>
       </div>
 
@@ -77,8 +77,8 @@ export const AdminCoursesReview: React.FC = () => {
                 </div>
                 <div>
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <Badge variant="in-review" size="xs">{r.status}</Badge>
-                    <span className="text-xs text-slate-400">Submitted {r.submittedDate}</span>
+                    <Badge variant="in-review" size="xs">{r.status === 'Pending QA' ? 'Menunggu Pemeriksaan' : 'Sedang Ditinjau'}</Badge>
+                    <span className="text-xs text-slate-400">Dikirim {r.submittedDate}</span>
                   </div>
                   <h3 className="text-base font-bold text-text-heading mb-1">{r.title}</h3>
                   <div className="flex items-center gap-3 text-xs text-slate-500">
@@ -87,7 +87,7 @@ export const AdminCoursesReview: React.FC = () => {
                       <span>{r.instructor}</span>
                     </div>
                     <span>•</span>
-                    <span>{r.lessonsCount} Lessons</span>
+                    <span>{r.lessonsCount} Pelajaran</span>
                     <span>•</span>
                     <span>{r.duration}</span>
                   </div>
@@ -96,10 +96,10 @@ export const AdminCoursesReview: React.FC = () => {
 
               <div className="flex items-center gap-2.5 self-end lg:self-center">
                 <Button variant="outline" size="sm" leftIcon={<Eye className="w-3.5 h-3.5" />}>
-                  Inspect Syllabus
+                  Periksa Silabus
                 </Button>
                 <Button variant="orange" size="sm" leftIcon={<Check className="w-3.5 h-3.5" />}>
-                  Approve & Publish
+                  Setujui & Terbitkan
                 </Button>
               </div>
             </Card>
@@ -109,4 +109,3 @@ export const AdminCoursesReview: React.FC = () => {
     </div>
   );
 };
-

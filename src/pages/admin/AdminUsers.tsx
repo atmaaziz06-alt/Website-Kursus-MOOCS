@@ -82,12 +82,12 @@ export const AdminUsers: React.FC = () => {
 
   // Categories list for tab 2
   const [categories, setCategories] = useState([
-    { id: 'cat-1', name: 'Technology & Cloud', slug: 'technology', courseCount: 24, status: 'Aktif' },
-    { id: 'cat-2', name: 'Software Development', slug: 'development', courseCount: 20, status: 'Aktif' },
-    { id: 'cat-3', name: 'Business & Management', slug: 'business', courseCount: 18, status: 'Aktif' },
-    { id: 'cat-4', name: 'UI/UX & Product Design', slug: 'design', courseCount: 16, status: 'Aktif' },
-    { id: 'cat-5', name: 'Digital Marketing & Growth', slug: 'marketing', courseCount: 14, status: 'Aktif' },
-    { id: 'cat-6', name: 'Personal Growth & Leadership', slug: 'personal-growth', courseCount: 12, status: 'Aktif' },
+    { id: 'cat-1', name: 'Teknologi & Cloud', slug: 'technology', courseCount: 24, status: 'Aktif' },
+    { id: 'cat-2', name: 'Pengembangan Perangkat Lunak', slug: 'development', courseCount: 20, status: 'Aktif' },
+    { id: 'cat-3', name: 'Bisnis & Manajemen', slug: 'business', courseCount: 18, status: 'Aktif' },
+    { id: 'cat-4', name: 'UI/UX & Desain Produk', slug: 'design', courseCount: 16, status: 'Aktif' },
+    { id: 'cat-5', name: 'Pemasaran Digital & Pertumbuhan', slug: 'marketing', courseCount: 14, status: 'Aktif' },
+    { id: 'cat-6', name: 'Pengembangan Diri & Kepemimpinan', slug: 'personal-growth', courseCount: 12, status: 'Aktif' },
   ]);
 
   // Filtering users
@@ -113,7 +113,7 @@ export const AdminUsers: React.FC = () => {
       {/* 1. HEADER (Indonesian Copy) */}
       <div>
         <div className="text-xs font-semibold text-slate-400 mb-1">
-          Admin Hub / Management
+          Pusat Admin / Pengelolaan
         </div>
         <h1 className="text-2xl sm:text-3xl font-extrabold text-text-heading mb-1.5">
           Kelola Pengguna & Kategori
@@ -125,15 +125,15 @@ export const AdminUsers: React.FC = () => {
         {/* Stat Chips */}
         <div className="flex items-center gap-3 mt-4 flex-wrap">
           <div className="px-3 py-1.5 rounded-full bg-soft-blue text-blue text-xs font-bold flex items-center gap-1.5 border border-blue/20">
-            <span>TOTAL USERS:</span>
+            <span>TOTAL PENGGUNA:</span>
             <strong>24,850</strong>
           </div>
           <div className="px-3 py-1.5 rounded-full bg-green-tint text-green text-xs font-bold flex items-center gap-1.5 border border-green/20">
-            <span>CATEGORIES:</span>
+            <span>KATEGORI:</span>
             <strong>18 Aktif</strong>
           </div>
           <div className="px-3 py-1.5 rounded-full bg-orange-tint text-orange-dark text-xs font-bold flex items-center gap-1.5 border border-orange/20">
-            <span>PENDING:</span>
+            <span>MENUNGGU:</span>
             <strong>3 Menunggu</strong>
           </div>
         </div>
@@ -186,7 +186,7 @@ export const AdminUsers: React.FC = () => {
                 onChange={(e) => setRoleFilter(e.target.value)}
                 className="bg-slate-50 border border-border text-xs font-semibold rounded-xl px-3 py-2.5 text-slate-700 focus:outline-none focus:border-blue cursor-pointer w-full sm:w-auto"
               >
-                <option value="all">Semua Peran (All Roles)</option>
+                <option value="all">Semua Peran</option>
                 <option value="peserta">Peserta</option>
                 <option value="instruktur">Instruktur</option>
                 <option value="admin">Admin</option>
@@ -205,7 +205,7 @@ export const AdminUsers: React.FC = () => {
 
             <div className="flex items-center gap-2.5">
               <Button variant="outline" size="sm" leftIcon={<Download className="w-3.5 h-3.5" />}>
-                Export CSV
+                Ekspor CSV
               </Button>
               <Button variant="orange" size="sm" leftIcon={<Plus className="w-3.5 h-3.5" />}>
                 + Tambah Pengguna Baru
@@ -220,7 +220,7 @@ export const AdminUsers: React.FC = () => {
                 <tr className="border-b border-border text-slate-400 font-bold uppercase tracking-wider">
                   <th className="pb-3">PENGGUNA</th>
                   <th className="pb-3">ALAMAT EMAIL</th>
-                  <th className="pb-3">PERAN (ROLE)</th>
+                  <th className="pb-3">PERAN</th>
                   <th className="pb-3">STATUS AKUN</th>
                   <th className="pb-3">BERGABUNG</th>
                   <th className="pb-3 text-right">TINDAKAN</th>
@@ -256,7 +256,7 @@ export const AdminUsers: React.FC = () => {
                         <button type="button" className="text-slate-400 hover:text-blue p-1" title="Edit Pengguna">
                           <Edit className="w-3.5 h-3.5" />
                         </button>
-                        <button type="button" className="text-slate-400 hover:text-navy p-1" title="More options">
+                        <button type="button" className="text-slate-400 hover:text-navy p-1" title="Opsi lainnya">
                           <MoreVertical className="w-3.5 h-3.5" />
                         </button>
                       </div>
@@ -340,4 +340,3 @@ export const AdminUsers: React.FC = () => {
     </div>
   );
 };
-

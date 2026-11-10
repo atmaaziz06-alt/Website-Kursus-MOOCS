@@ -18,7 +18,7 @@ const roleProfiles: Record<UserRole, User> = {
     ...currentUser,
     role: 'participant',
     name: 'Dian Paramitha',
-    title: 'Participant',
+    title: 'Peserta',
     studentId: '84920',
   },
   instructor: {
@@ -27,8 +27,8 @@ const roleProfiles: Record<UserRole, User> = {
     email: 'john.smith@eduspace.ac.id',
     role: 'instructor',
     avatarId: 'john-smith',
-    title: 'Lead Instructor',
-    bio: 'Senior Staff Engineer and Lead Instructor for Web Development Cohort 2025.',
+    title: 'Pengajar Utama',
+    bio: 'Senior Staff Engineer dan pengajar utama untuk angkatan Pengembangan Web 2025.',
   },
   admin: {
     id: 'admin-portal-1',
@@ -36,7 +36,7 @@ const roleProfiles: Record<UserRole, User> = {
     email: 'admin@eduspace.ac.id',
     role: 'admin',
     avatarId: 'usr-84920',
-    title: 'Admin Portal',
+    title: 'Portal Admin',
   },
 };
 

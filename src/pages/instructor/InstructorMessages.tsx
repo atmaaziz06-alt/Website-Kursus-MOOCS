@@ -62,10 +62,10 @@ export const InstructorMessages: React.FC = () => {
     return (
       <div className="max-w-[900px] mx-auto">
         <Card className="p-8 text-center">
-          <h1 className="text-xl font-bold text-text-heading">Student not found</h1>
-          <p className="mt-2 text-sm text-slate-500">This student is not in your directory.</p>
+          <h1 className="text-xl font-bold text-text-heading">Peserta tidak ditemukan</h1>
+          <p className="mt-2 text-sm text-slate-500">Peserta ini tidak ada dalam daftar peserta didikmu.</p>
           <Link to="/instructor/students" className="mt-4 inline-block text-sm font-bold text-blue">
-            Return to Students
+            Kembali ke Daftar Peserta
           </Link>
         </Card>
       </div>
@@ -76,7 +76,7 @@ export const InstructorMessages: React.FC = () => {
     event.preventDefault();
     const text = draft.trim();
     if (!text) {
-      setErrorMessage('Write a message before sending.');
+      setErrorMessage('Tulis pesan sebelum mengirim.');
       return;
     }
 
@@ -100,7 +100,7 @@ export const InstructorMessages: React.FC = () => {
         className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-blue"
       >
         <ArrowLeft className="w-4 h-4" />
-        Back to Students
+        Kembali ke Daftar Peserta
       </Link>
 
       <Card className="flex min-h-[65vh] flex-col overflow-hidden">
@@ -118,16 +118,16 @@ export const InstructorMessages: React.FC = () => {
         <div
           className="flex-1 space-y-4 overflow-y-auto bg-slate-50/70 p-4 sm:p-6"
           aria-live="polite"
-          aria-label={`Conversation with ${student.name}`}
+          aria-label={`Percakapan dengan ${student.name}`}
         >
           {messages.length === 0 ? (
             <div className="flex h-full min-h-64 flex-col items-center justify-center text-center">
               <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-soft-blue text-blue">
                 <MessageCircle className="w-6 h-6" />
               </span>
-              <h2 className="mt-4 text-sm font-bold text-text-heading">Start a conversation</h2>
+              <h2 className="mt-4 text-sm font-bold text-text-heading">Mulai Percakapan</h2>
               <p className="mt-1 max-w-sm text-xs leading-relaxed text-slate-500">
-                Send {student.name.split(' ')[0]} a message about their course progress or any questions.
+                Kirim pesan kepada {student.name.split(' ')[0]} tentang progres kursus atau pertanyaan lainnya.
               </p>
             </div>
           ) : (
@@ -160,7 +160,7 @@ export const InstructorMessages: React.FC = () => {
         </div>
 
         <form onSubmit={sendMessage} className="border-t border-border bg-white p-4 sm:p-5">
-          <label htmlFor="student-message" className="sr-only">Write a message</label>
+          <label htmlFor="student-message" className="sr-only">Tulis pesan</label>
           <div className="flex items-end gap-3">
             <textarea
               id="student-message"
@@ -177,7 +177,7 @@ export const InstructorMessages: React.FC = () => {
               }}
               rows={2}
               maxLength={2000}
-              placeholder={`Message ${student.name.split(' ')[0]}...`}
+              placeholder={`Pesan untuk ${student.name.split(' ')[0]}...`}
               className="min-h-12 flex-1 resize-y rounded-xl border border-border bg-slate-50 px-3.5 py-3 text-sm text-slate-800 placeholder:text-slate-400 focus:border-blue focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue/20"
             />
             <Button
@@ -187,12 +187,12 @@ export const InstructorMessages: React.FC = () => {
               disabled={!draft.trim()}
               leftIcon={<Send className="w-4 h-4" />}
             >
-              Send
+              Kirim
             </Button>
           </div>
           <div className="mt-2 flex items-center justify-between gap-3">
             <p role="status" className="text-xs text-red">{errorMessage}</p>
-            <p className="ml-auto text-[10px] text-slate-400">Enter to send · Shift+Enter for a new line</p>
+            <p className="ml-auto text-[10px] text-slate-400">Enter untuk mengirim · Shift+Enter untuk baris baru</p>
           </div>
           <p className="mt-2 text-[10px] text-slate-400">
             Demo messages are saved in this browser and are not delivered to email or another device.

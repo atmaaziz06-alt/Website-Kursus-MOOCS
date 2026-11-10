@@ -28,16 +28,16 @@ export const NotificationsPage: React.FC = () => {
     () => notifications.filter((item) => filter === 'all' || !isRead(item.id)),
     [filter, isRead, notifications]
   );
-  const roleTitle = role === 'participant' ? 'learning' : role === 'instructor' ? 'teaching' : 'platform';
+  const roleTitle = role === 'participant' ? 'belajar' : role === 'instructor' ? 'mengajar' : 'platform';
 
   return (
     <div className="max-w-[1000px] mx-auto space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-blue mb-1">Your updates</p>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-text-heading">Notifications</h1>
+          <p className="text-xs font-bold uppercase tracking-wider text-blue mb-1">Pembaruan untukmu</p>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-text-heading">Notifikasi</h1>
           <p className="text-sm text-slate-500 mt-1">
-            Stay up to date with your {roleTitle} activity.
+            Ikuti perkembangan aktivitas {roleTitle}-mu.
           </p>
         </div>
         <button
@@ -47,7 +47,7 @@ export const NotificationsPage: React.FC = () => {
           className="inline-flex items-center gap-2 self-start sm:self-auto text-xs font-bold text-blue hover:text-navy disabled:text-slate-400 disabled:cursor-not-allowed"
         >
           <CheckCheck className="w-4 h-4" />
-          Mark all as read
+          Tandai semua telah dibaca
         </button>
       </div>
 
@@ -62,7 +62,7 @@ export const NotificationsPage: React.FC = () => {
                 filter === 'all' ? 'bg-soft-blue text-blue' : 'text-slate-500 hover:bg-slate-50'
               }`}
             >
-              All
+              Semua
             </button>
             <button
               type="button"
@@ -72,23 +72,23 @@ export const NotificationsPage: React.FC = () => {
                 filter === 'unread' ? 'bg-soft-blue text-blue' : 'text-slate-500 hover:bg-slate-50'
               }`}
             >
-              Unread{unreadCount > 0 ? ` (${unreadCount})` : ''}
+              Belum dibaca{unreadCount > 0 ? ` (${unreadCount})` : ''}
             </button>
           </div>
           <span className="hidden sm:inline-flex items-center gap-1.5 text-xs text-slate-500">
             <Bell className="w-3.5 h-3.5" />
-            {unreadCount === 0 ? 'You’re all caught up' : `${unreadCount} unread`}
+            {unreadCount === 0 ? 'Semua notifikasi telah dibaca' : `${unreadCount} belum dibaca`}
           </span>
         </div>
 
         {filteredNotifications.length === 0 ? (
           <EmptyState
             icon={<Check className="w-7 h-7" />}
-            title={filter === 'unread' ? 'You’re all caught up' : 'No notifications yet'}
+            title={filter === 'unread' ? 'Semua notifikasi telah dibaca' : 'Belum ada notifikasi'}
             description={
               filter === 'unread'
-                ? 'There are no unread notifications. Check back later for new updates.'
-                : 'New updates about your courses and account will appear here.'
+                ? 'Tidak ada notifikasi yang belum dibaca. Periksa kembali nanti untuk pembaruan.'
+                : 'Pembaruan tentang kursus dan akunmu akan muncul di sini.'
             }
             className="py-12"
           />
@@ -113,7 +113,7 @@ export const NotificationsPage: React.FC = () => {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <h2 className="text-sm font-bold text-text-heading">{notification.title}</h2>
-                      {!read && <span className="h-2 w-2 rounded-full bg-blue" aria-label="Unread" />}
+                      {!read && <span className="h-2 w-2 rounded-full bg-blue" aria-label="Belum dibaca" />}
                     </div>
                     <p className="mt-1 text-sm leading-relaxed text-slate-600">
                       {notification.description}
@@ -124,7 +124,7 @@ export const NotificationsPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => markAsRead(notification.id)}
-                      aria-label={`Mark ${notification.title} as read`}
+                      aria-label={`Tandai ${notification.title} telah dibaca`}
                       className="rounded-lg p-2 text-slate-400 hover:bg-white hover:text-blue focus:outline-none focus-visible:ring-2 focus-visible:ring-blue"
                     >
                       <Check className="w-4 h-4" />

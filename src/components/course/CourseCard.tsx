@@ -4,6 +4,8 @@ import { Star, Bookmark, ArrowRight, Clock, Users } from 'lucide-react';
 import { Course } from '../../types';
 import { Card, Badge, Avatar } from '../ui';
 import { getCourseMedia, getInstructorPhoto } from '../../config/media';
+import { formatIDR } from '../../config/currency';
+import { translateCategory, translateLevel } from '../../config/locale';
 
 export interface CourseCardProps {
   course: Course;
@@ -36,7 +38,12 @@ export const CourseCard: React.FC<CourseCardProps> = ({
   };
 
   return (
-    <Card hoverable className={`flex flex-col overflow-hidden h-full group ${className}`}>
+    <Card hoverable className={`relative flex flex-col overflow-hidden h-full group ${className}`}>
+      <Link
+        to={`/courses/${course.slug}`}
+        aria-label={`Lihat kursus: ${course.title}`}
+        className="absolute inset-0 z-10 rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue focus-visible:outline-offset-2"
+      />
       {/* Thumbnail area */}
       <div className="relative aspect-[16/9] w-full overflow-hidden bg-slate-100">
         <img
@@ -49,7 +56,7 @@ export const CourseCard: React.FC<CourseCardProps> = ({
         {/* Top left category badge */}
         <div className="absolute top-3 left-3">
           <Badge variant={getCategoryBadgeVariant(course.category)} size="xs">
-            {course.category}
+            {translateCategory(course.category)}
           </Badge>
         </div>
 
@@ -61,12 +68,12 @@ export const CourseCard: React.FC<CourseCardProps> = ({
             e.stopPropagation();
             setIsBookmarked(!isBookmarked);
           }}
-          className={`absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+          className={`absolute top-3 right-3 z-20 w-8 h-8 rounded-full flex items-center justify-center transition-all ${
             isBookmarked
               ? 'bg-orange text-white'
               : 'bg-white/90 text-slate-600 hover:bg-white hover:text-navy shadow-sm'
           }`}
-          aria-label="Bookmark course"
+          aria-label="Simpan kursus"
         >
           <Bookmark className={`w-4 h-4 ${isBookmarked ? 'fill-current' : ''}`} />
         </button>
@@ -95,11 +102,11 @@ export const CourseCard: React.FC<CourseCardProps> = ({
               {course.totalDuration}
             </span>
             <span>•</span>
-            <span>{course.level}</span>
+            <span>                        {translateLevel(course.level)}</span>
             <span>•</span>
             <span className="flex items-center gap-1">
               <Users className="w-3 h-3 text-slate-400" />
-              {course.enrolledCount.toLocaleString()} students
+              {course.enrolledCount.toLocaleString()} peserta
             </span>
           </div>
 
@@ -107,11 +114,11 @@ export const CourseCard: React.FC<CourseCardProps> = ({
           {showPrice && (
             <div className="flex items-baseline gap-2 mb-3">
               <span className="text-lg font-extrabold text-text-heading">
-                ${course.price.toFixed(2)}
+                {formatIDR(course.price)}
               </span>
               {course.originalPrice > course.price && (
                 <span className="text-xs text-slate-400 line-through">
-                  ${course.originalPrice.toFixed(2)}
+                  {formatIDR(course.originalPrice)}
                 </span>
               )}
             </div>
@@ -128,16 +135,12 @@ export const CourseCard: React.FC<CourseCardProps> = ({
             <span className="text-[11px] text-slate-400">({course.reviewCount})</span>
           </div>
 
-          <Link
-            to={`/courses/${course.slug}`}
-            className="text-xs font-bold text-navy hover:text-blue inline-flex items-center gap-1 group/link"
-          >
-            <span>View Course</span>
-            <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover/link:translate-x-1" />
-          </Link>
+          <span className="text-xs font-bold text-navy inline-flex items-center gap-1">
+            <span>Lihat Kursus</span>
+            <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
+          </span>
         </div>
       </div>
     </Card>
   );
 };
-

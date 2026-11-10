@@ -4,6 +4,7 @@ import { Search, RotateCcw, Filter, Star, ChevronDown } from 'lucide-react';
 import { CourseCard } from '../../components/course/CourseCard';
 import { Card, Chip, Button, Pagination } from '../../components/ui';
 import { mockCourses } from '../../data/mockData';
+import { translateCategory, translateLevel } from '../../config/locale';
 
 export const CoursesPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -108,13 +109,13 @@ export const CoursesPage: React.FC = () => {
         {/* Header Section */}
         <div className="text-center max-w-2xl mx-auto mb-10">
           <span className="text-xs font-bold uppercase tracking-widest text-blue block mb-2">
-            CATALOG DIRECTORY
+            KATALOG KURSUS
           </span>
           <h1 className="text-3xl sm:text-4xl font-extrabold text-text-heading tracking-tight mb-3">
-            Explore Our Courses
+            Jelajahi Kursus
           </h1>
           <p className="text-slate-600 text-sm sm:text-base leading-relaxed mb-6">
-            Find the right program to upgrade your skills with industry-curated curriculums and personalized mentorship.
+            Temukan program yang tepat untuk mengembangkan keterampilanmu melalui kurikulum industri dan bimbingan personal.
           </p>
 
           {/* Wide search bar */}
@@ -127,7 +128,7 @@ export const CoursesPage: React.FC = () => {
                 setSearchQuery(e.target.value);
                 setCurrentPage(1);
               }}
-              placeholder="Search courses, mentors, technologies, topics..."
+              placeholder="Cari kursus, mentor, teknologi, atau topik..."
               className="w-full px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none bg-transparent"
             />
             <Button
@@ -136,13 +137,13 @@ export const CoursesPage: React.FC = () => {
               onClick={() => setCurrentPage(1)}
               className="shrink-0 rounded-xl"
             >
-              Search
+              Cari
             </Button>
           </div>
 
           {/* Popular pills */}
           <div className="flex items-center justify-center gap-2 mt-4 flex-wrap text-xs text-slate-500">
-            <span className="font-semibold text-slate-700">Popular:</span>
+            <span className="font-semibold text-slate-700">Populer:</span>
             {popularTags.map((tag) => (
               <button
                 key={tag}
@@ -153,7 +154,7 @@ export const CoursesPage: React.FC = () => {
                 }}
                 className="px-3 py-1 rounded-full bg-white border border-border text-slate-600 hover:border-blue hover:text-blue hover:bg-soft-blue/30 transition-all font-medium"
               >
-                {tag}
+                {{ 'Web Development': 'Pengembangan Web', Python: 'Python', Figma: 'Figma', 'Digital Marketing': 'Pemasaran Digital', 'Machine Learning': 'Pembelajaran Mesin' }[tag]}
               </button>
             ))}
           </div>
@@ -162,7 +163,7 @@ export const CoursesPage: React.FC = () => {
         {/* Mobile Filter Toggle */}
         <div className="lg:hidden mb-6 flex justify-between items-center bg-white p-4 rounded-2xl border border-border shadow-sm">
           <span className="text-sm font-bold text-text-heading">
-            {filteredCourses.length} Courses Found
+            {filteredCourses.length} Kursus Ditemukan
           </span>
           <Button
             variant="outline"
@@ -170,7 +171,7 @@ export const CoursesPage: React.FC = () => {
             onClick={() => setIsMobileFilterOpen(!isMobileFilterOpen)}
             leftIcon={<Filter className="w-4 h-4 text-blue" />}
           >
-            {isMobileFilterOpen ? 'Hide Filters' : 'Show Filters'}
+            {isMobileFilterOpen ? 'Sembunyikan Filter' : 'Tampilkan Filter'}
           </Button>
         </div>
 
@@ -182,7 +183,7 @@ export const CoursesPage: React.FC = () => {
               <div className="flex items-center justify-between pb-4 border-b border-border">
                 <div className="flex items-center gap-2">
                   <Filter className="w-4 h-4 text-blue" />
-                  <h3 className="text-base font-bold text-text-heading">Filters</h3>
+                  <h3 className="text-base font-bold text-text-heading">Filter</h3>
                 </div>
                 <button
                   type="button"
@@ -190,14 +191,14 @@ export const CoursesPage: React.FC = () => {
                   className="text-xs font-semibold text-orange hover:text-orange-dark flex items-center gap-1 transition-colors"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Reset Filter</span>
+                  <span>Atur Ulang</span>
                 </button>
               </div>
 
               {/* CATEGORIES */}
               <div>
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-3">
-                  CATEGORIES
+                  KATEGORI
                 </span>
                 <div className="space-y-2">
                   <label className="flex items-center justify-between text-xs font-medium text-slate-700 cursor-pointer hover:text-navy">
@@ -212,7 +213,7 @@ export const CoursesPage: React.FC = () => {
                         }}
                         className="text-blue focus:ring-blue"
                       />
-                      <span>All Categories</span>
+                      <span>Semua Kategori</span>
                     </div>
                     <span className="text-slate-400">48</span>
                   </label>
@@ -232,7 +233,7 @@ export const CoursesPage: React.FC = () => {
                           }}
                           className="text-blue focus:ring-blue"
                         />
-                        <span>{cat.name}</span>
+                        <span>{translateCategory(cat.name)}</span>
                       </div>
                       <span className="text-slate-400">{cat.count}</span>
                     </label>
@@ -243,7 +244,7 @@ export const CoursesPage: React.FC = () => {
               {/* LEVEL */}
               <div className="pt-4 border-t border-border">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-3">
-                  LEVEL
+                  TINGKAT
                 </span>
                 <div className="space-y-2">
                   <label className="flex items-center justify-between text-xs font-medium text-slate-700 cursor-pointer hover:text-navy">
@@ -258,7 +259,7 @@ export const CoursesPage: React.FC = () => {
                         }}
                         className="text-blue focus:ring-blue"
                       />
-                      <span>All Levels</span>
+                      <span>Semua Tingkat</span>
                     </div>
                     <span className="text-slate-400">48</span>
                   </label>
@@ -278,7 +279,7 @@ export const CoursesPage: React.FC = () => {
                           }}
                           className="text-blue focus:ring-blue"
                         />
-                        <span>{lvl.name}</span>
+                        <span>{translateLevel(lvl.name)}</span>
                       </div>
                       <span className="text-slate-400">{lvl.count}</span>
                     </label>
@@ -289,7 +290,7 @@ export const CoursesPage: React.FC = () => {
               {/* PRICE */}
               <div className="pt-4 border-t border-border">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-3">
-                  PRICE
+                  HARGA
                 </span>
                 <div className="space-y-2">
                   <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
@@ -303,7 +304,7 @@ export const CoursesPage: React.FC = () => {
                       }}
                       className="text-blue focus:ring-blue"
                     />
-                    <span>All Courses</span>
+                    <span>Semua Kursus</span>
                   </label>
                   <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
                     <input
@@ -316,7 +317,7 @@ export const CoursesPage: React.FC = () => {
                       }}
                       className="text-blue focus:ring-blue"
                     />
-                    <span>Paid ($29 - $99)</span>
+                    <span>Berbayar (Rp290.000 - Rp990.000)</span>
                   </label>
                   <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
                     <input
@@ -329,7 +330,7 @@ export const CoursesPage: React.FC = () => {
                       }}
                       className="text-blue focus:ring-blue"
                     />
-                    <span>Free</span>
+                    <span>Gratis</span>
                   </label>
                 </div>
               </div>
@@ -353,7 +354,7 @@ export const CoursesPage: React.FC = () => {
                     />
                     <div className="flex items-center gap-1">
                       <Star className="w-3.5 h-3.5 fill-amber-400 stroke-amber-500" />
-                      <span>4.5 & up</span>
+                      <span>4,5 ke atas</span>
                     </div>
                   </label>
                   <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
@@ -369,7 +370,7 @@ export const CoursesPage: React.FC = () => {
                     />
                     <div className="flex items-center gap-1">
                       <Star className="w-3.5 h-3.5 fill-amber-400 stroke-amber-500" />
-                      <span>4.0 & up</span>
+                      <span>4,0 ke atas</span>
                     </div>
                   </label>
                   <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
@@ -383,7 +384,7 @@ export const CoursesPage: React.FC = () => {
                       }}
                       className="text-blue focus:ring-blue"
                     />
-                    <span>All Ratings</span>
+                    <span>Semua Rating</span>
                   </label>
                 </div>
               </div>
@@ -397,11 +398,11 @@ export const CoursesPage: React.FC = () => {
               <div className="text-xs sm:text-sm font-semibold text-slate-700">
                 {filteredCourses.length > 0 ? (
                   <span>
-                    Showing <strong className="text-navy">{startIdx}-{endIdx}</strong> of{' '}
-                    <strong className="text-navy">{filteredCourses.length}</strong> courses
+                    Menampilkan <strong className="text-navy">{startIdx}-{endIdx}</strong> dari{' '}
+                    <strong className="text-navy">{filteredCourses.length}</strong> kursus
                   </span>
                 ) : (
-                  <span>No matching courses found</span>
+                  <span>Kursus yang sesuai tidak ditemukan</span>
                 )}
               </div>
 
@@ -413,7 +414,7 @@ export const CoursesPage: React.FC = () => {
                     size="sm"
                     onRemove={() => setSelectedCategory('All')}
                   >
-                    {selectedCategory}
+                    {translateCategory(selectedCategory)}
                   </Chip>
                 )}
                 {selectedLevel !== 'All' && (
@@ -422,7 +423,7 @@ export const CoursesPage: React.FC = () => {
                     size="sm"
                     onRemove={() => setSelectedLevel('All')}
                   >
-                    {selectedLevel}
+                    {translateLevel(selectedLevel)}
                   </Chip>
                 )}
                 {selectedPrice !== 'all' && (
@@ -431,7 +432,7 @@ export const CoursesPage: React.FC = () => {
                     size="sm"
                     onRemove={() => setSelectedPrice('all')}
                   >
-                    {selectedPrice === 'paid' ? 'Paid' : 'Free'}
+                    {selectedPrice === 'paid' ? 'Berbayar' : 'Gratis'}
                   </Chip>
                 )}
                 {selectedRating > 0 && (
@@ -451,11 +452,11 @@ export const CoursesPage: React.FC = () => {
                     onChange={(e) => setSortBy(e.target.value)}
                     className="appearance-none bg-slate-50 border border-border text-slate-700 text-xs font-semibold py-2 pl-3 pr-8 rounded-xl focus:outline-none focus:border-blue cursor-pointer"
                   >
-                    <option value="newest">Sort by: Newest</option>
-                    <option value="highest-rated">Sort by: Highest Rated</option>
-                    <option value="most-popular">Sort by: Most Popular</option>
-                    <option value="price-low">Sort by: Price: Low to High</option>
-                    <option value="price-high">Sort by: Price: High to Low</option>
+                    <option value="newest">Urutkan: Terbaru</option>
+                    <option value="highest-rated">Urutkan: Rating Tertinggi</option>
+                    <option value="most-popular">Urutkan: Terpopuler</option>
+                    <option value="price-low">Urutkan: Harga Terendah</option>
+                    <option value="price-high">Urutkan: Harga Tertinggi</option>
                   </select>
                   <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
@@ -471,10 +472,10 @@ export const CoursesPage: React.FC = () => {
               </div>
             ) : (
               <Card className="p-12 text-center my-6">
-                <div className="text-slate-400 text-base mb-2 font-bold">No courses match your active criteria</div>
-                <p className="text-xs text-slate-500 mb-6">Try clearing some filters or searching for another topic.</p>
+                <div className="text-slate-400 text-base mb-2 font-bold">Tidak ada kursus yang sesuai dengan pilihanmu</div>
+                <p className="text-xs text-slate-500 mb-6">Coba hapus beberapa filter atau cari topik lain.</p>
                 <Button variant="orange" size="sm" onClick={handleResetFilters}>
-                  Clear All Filters
+                  Hapus Semua Filter
                 </Button>
               </Card>
             )}
@@ -498,4 +499,3 @@ export const CoursesPage: React.FC = () => {
     </div>
   );
 };
-

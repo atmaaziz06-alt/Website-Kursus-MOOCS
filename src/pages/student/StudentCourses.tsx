@@ -31,18 +31,18 @@ export const StudentCourses: React.FC = () => {
         <div role="status" className="flex items-start gap-3 rounded-2xl border border-green/20 bg-green-tint/50 p-4">
           <CheckCircle2 className="w-5 h-5 shrink-0 text-green" />
           <div>
-            <p className="text-sm font-bold text-text-heading">Course added to My Courses</p>
+            <p className="text-sm font-bold text-text-heading">Kursus ditambahkan ke Kursus Saya</p>
             <p className="mt-0.5 text-xs text-slate-600">{enrolledCourseTitle}</p>
           </div>
         </div>
       )}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-text-heading">My Courses</h1>
-          <p className="text-xs text-slate-500 mt-1">Manage and track your enrolled curriculum pathways</p>
+          <h1 className="text-2xl font-extrabold text-text-heading">Kursus Saya</h1>
+          <p className="text-xs text-slate-500 mt-1">Kelola dan pantau perkembangan kursus yang kamu ikuti</p>
         </div>
         <Button variant="orange" size="md" onClick={() => navigate('/courses')}>
-          Browse New Courses
+          Jelajahi Kursus Baru
         </Button>
       </div>
 
@@ -56,7 +56,7 @@ export const StudentCourses: React.FC = () => {
               filter === 'all' ? 'bg-white text-navy shadow-sm' : 'text-slate-600'
             }`}
           >
-            All Courses ({enrolledCourses.length})
+            Semua Kursus ({enrolledCourses.length})
           </button>
           <button
             type="button"
@@ -65,7 +65,7 @@ export const StudentCourses: React.FC = () => {
               filter === 'active' ? 'bg-white text-navy shadow-sm' : 'text-slate-600'
             }`}
           >
-            Active (3)
+            Berlangsung (3)
           </button>
           <button
             type="button"
@@ -74,7 +74,7 @@ export const StudentCourses: React.FC = () => {
               filter === 'completed' ? 'bg-white text-navy shadow-sm' : 'text-slate-600'
             }`}
           >
-            Completed (3)
+            Selesai (3)
           </button>
         </div>
 
@@ -83,7 +83,7 @@ export const StudentCourses: React.FC = () => {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search enrolled courses..."
+            placeholder="Cari kursus yang diikuti..."
             className="w-full bg-slate-50 text-xs rounded-xl border border-border px-3.5 py-2 focus:outline-none focus:border-blue"
           />
         </div>
@@ -106,7 +106,7 @@ export const StudentCourses: React.FC = () => {
                 />
                 <div className="absolute top-3 left-3">
                   <Badge variant={item.isCompleted ? 'active' : 'technology'} size="xs">
-                    {item.isCompleted ? 'COMPLETED' : 'IN PROGRESS'}
+                    {item.isCompleted ? 'SELESAI' : 'SEDANG BERLANGSUNG'}
                   </Badge>
                 </div>
               </div>
@@ -125,7 +125,7 @@ export const StudentCourses: React.FC = () => {
                   </h3>
 
                   <p className="text-xs text-blue font-semibold mb-3 truncate">
-                    {item.isCompleted ? 'All 38 Modules Finished' : item.currentLessonTitle}
+                    {item.isCompleted ? 'Semua 38 modul telah diselesaikan' : item.currentLessonTitle}
                   </p>
 
                   <ProgressBar
@@ -136,8 +136,8 @@ export const StudentCourses: React.FC = () => {
                   />
 
                   <div className="flex items-center justify-between text-xs text-slate-500">
-                    <span>{item.progressPercent}% Complete</span>
-                    <span>{item.completedLessons}/{item.totalLessons} Lessons</span>
+                    <span>{item.progressPercent}% Selesai</span>
+                    <span>{item.completedLessons}/{item.totalLessons} Pelajaran</span>
                   </div>
                 </div>
 
@@ -149,7 +149,7 @@ export const StudentCourses: React.FC = () => {
                       fullWidth
                       leftIcon={<Download className="w-3.5 h-3.5 text-blue" />}
                     >
-                      Certificate (.PDF)
+                      Sertifikat (.PDF)
                     </Button>
                   ) : (
                     <Button
@@ -159,7 +159,7 @@ export const StudentCourses: React.FC = () => {
                       onClick={() => navigate(`/learn/${item.courseSlug}/${item.currentLessonId}`)}
                       rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
                     >
-                      Resume Learning
+                      Lanjutkan Belajar
                     </Button>
                   )}
                 </div>

@@ -27,9 +27,9 @@ export const RegisterPage: React.FC = () => {
     if (/[0-9]/.test(pwd)) score++;
     if (/[^A-Za-z0-9]/.test(pwd)) score++;
 
-    if (score <= 1) return { score: 1, label: 'Weak password', color: 'bg-red' };
-    if (score === 2) return { score: 2, label: 'Medium password', color: 'bg-orange' };
-    if (score >= 3) return { score: 3, label: 'Strong password', color: 'bg-green' };
+    if (score <= 1) return { score: 1, label: 'Kata sandi lemah', color: 'bg-red' };
+    if (score === 2) return { score: 2, label: 'Kata sandi sedang', color: 'bg-orange' };
+    if (score >= 3) return { score: 3, label: 'Kata sandi kuat', color: 'bg-green' };
     return { score: 0, label: '', color: 'bg-slate-200' };
   };
 
@@ -62,20 +62,20 @@ export const RegisterPage: React.FC = () => {
         {/* Header */}
         <div className="mb-6">
           <span className="text-[11px] font-bold uppercase tracking-wider text-orange-dark block mb-1">
-            Quick Enrollment
+            Pendaftaran Cepat
           </span>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-text-heading tracking-tight mb-1.5">
-            Create Your Account
+            Buat Akun
           </h1>
           <p className="text-xs sm:text-sm text-slate-500">
-            Join thousands of active students and world-class mentors
+            Bergabunglah dengan peserta aktif dan pengajar berpengalaman
           </p>
         </div>
 
         {/* Role Selection Cards */}
         <div className="mb-6">
           <label className="block text-xs font-semibold text-text-heading mb-2 uppercase tracking-wide">
-            I want to join as
+            Saya ingin bergabung sebagai
           </label>
           <div className="grid grid-cols-2 gap-3">
             <button
@@ -98,9 +98,9 @@ export const RegisterPage: React.FC = () => {
                 )}
               </div>
               <div>
-                <span className="text-xs font-bold text-text-heading block">Participant</span>
+                <span className="text-xs font-bold text-text-heading block">Peserta</span>
                 <span className="text-[11px] text-slate-500 block leading-tight">
-                  I want to learn
+                  Saya ingin belajar
                 </span>
               </div>
             </button>
@@ -125,9 +125,9 @@ export const RegisterPage: React.FC = () => {
                 )}
               </div>
               <div>
-                <span className="text-xs font-bold text-text-heading block">Instructor</span>
+                <span className="text-xs font-bold text-text-heading block">Pengajar</span>
                 <span className="text-[11px] text-slate-500 block leading-tight">
-                  I want to teach
+                  Saya ingin mengajar
                 </span>
               </div>
             </button>
@@ -137,36 +137,36 @@ export const RegisterPage: React.FC = () => {
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
-            label="Full Name*"
+            label="Nama Lengkap*"
             type="text"
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
-            placeholder="e.g. Dian Paramitha"
+            placeholder="mis. Dian Paramitha"
             leftIcon={<User className="w-4 h-4" />}
-            error={submitted && !fullName ? 'Full name is required' : undefined}
+            error={submitted && !fullName ? 'Nama lengkap wajib diisi' : undefined}
             required
           />
 
           <Input
-            label="Email Address*"
+            label="Alamat Email*"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="name@eduspace.ac.id"
+            placeholder="nama@eduspace.ac.id"
             leftIcon={<Mail className="w-4 h-4" />}
-            error={submitted && !email ? 'Email address is required' : undefined}
+            error={submitted && !email ? 'Alamat email wajib diisi' : undefined}
             required
           />
 
           <div>
             <Input
-              label="Password*"
+              label="Kata Sandi*"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
               leftIcon={<Lock className="w-4 h-4" />}
-              error={submitted && !password ? 'Password is required' : undefined}
+              error={submitted && !password ? 'Kata sandi wajib diisi' : undefined}
               required
             />
             {password && (
@@ -186,7 +186,7 @@ export const RegisterPage: React.FC = () => {
 
           <div>
             <Input
-              label="Confirm Password*"
+              label="Konfirmasi Kata Sandi*"
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
@@ -194,7 +194,7 @@ export const RegisterPage: React.FC = () => {
               leftIcon={<Lock className="w-4 h-4" />}
               error={
                 !passwordsMatch
-                  ? 'Passwords do not match. Please ensure both passwords are identical.'
+                  ? 'Kata sandi tidak sama. Pastikan kedua kata sandi cocok.'
                   : undefined
               }
               required
@@ -207,19 +207,19 @@ export const RegisterPage: React.FC = () => {
               onChange={(e) => setAgreeTerms(e.target.checked)}
               label={
                 <span>
-                  I agree to the{' '}
+                  Saya menyetujui{' '}
                   <a href="#terms" className="text-blue font-semibold hover:underline">
-                    Terms of Service
+                    Ketentuan Layanan
                   </a>{' '}
-                  and{' '}
+                  dan{' '}
                   <a href="#privacy" className="text-blue font-semibold hover:underline">
-                    Privacy Policy
+                    Kebijakan Privasi
                   </a>
                 </span>
               }
             />
             {submitted && !agreeTerms && (
-              <p className="mt-1 text-xs text-red font-medium">You must accept the terms to proceed</p>
+              <p className="mt-1 text-xs text-red font-medium">Kamu harus menyetujui ketentuan untuk melanjutkan</p>
             )}
           </div>
 
@@ -230,7 +230,7 @@ export const RegisterPage: React.FC = () => {
             fullWidth
             className="mt-3"
           >
-            Create Account
+            Buat Akun
           </Button>
         </form>
 
@@ -240,7 +240,7 @@ export const RegisterPage: React.FC = () => {
             <div className="w-full border-t border-border" />
           </div>
           <span className="relative bg-white px-3 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-            OR SIGN UP WITH
+            ATAU DAFTAR DENGAN
           </span>
         </div>
 
@@ -292,13 +292,12 @@ export const RegisterPage: React.FC = () => {
 
         {/* Already have an account */}
         <p className="text-center text-xs text-slate-500">
-          Already have an account?{' '}
+          Sudah memiliki akun?{' '}
           <Link to="/login" className="font-bold text-navy hover:text-blue">
-            Log In
+            Masuk
           </Link>
         </p>
       </Card>
     </AuthSplitLayout>
   );
 };
-

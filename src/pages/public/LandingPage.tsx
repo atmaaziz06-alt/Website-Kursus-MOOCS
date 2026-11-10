@@ -28,6 +28,7 @@ import { Button, Card, Avatar } from '../../components/ui';
 import { CourseCard } from '../../components/course/CourseCard';
 import { mockCourses } from '../../data/mockData';
 import { media, getUserAvatar } from '../../config/media';
+import { translateCategory } from '../../config/locale';
 
 export const LandingPage: React.FC = () => {
   const navigate = useNavigate();
@@ -58,36 +59,36 @@ export const LandingPage: React.FC = () => {
 
   const steps = [
     {
-      step: 'Step 01',
-      title: 'Find a Course',
-      desc: 'Browse our catalog of 1,200+ accredited tech, business, and design courses tailored for industry demands.',
+      step: 'Langkah 01',
+      title: 'Temukan Kursus',
+      desc: 'Jelajahi lebih dari 1.200 kursus teknologi, bisnis, dan desain terakreditasi yang sesuai kebutuhan industri.',
       icon: <Search className="w-6 h-6 text-white" />,
     },
     {
-      step: 'Step 02',
-      title: 'Register & Enroll',
-      desc: 'Create your account in seconds, access financial aid or cohort tracks, and unlock immediate syllabus access.',
+      step: 'Langkah 02',
+      title: 'Daftar & Mulai Belajar',
+      desc: 'Buat akun dalam hitungan detik, pilih program yang sesuai, dan langsung akses materi pembelajaran.',
       icon: <UserCheck className="w-6 h-6 text-white" />,
     },
     {
-      step: 'Step 03',
-      title: 'Learn the Materials',
-      desc: 'Watch HD video lectures, download interactive cheatsheets, and practice code directly inside your browser.',
+      step: 'Langkah 03',
+      title: 'Pelajari Materi',
+      desc: 'Tonton video pembelajaran, unduh rangkuman interaktif, dan praktikkan kode langsung di browser.',
       icon: <BookOpen className="w-6 h-6 text-white" />,
     },
     {
-      step: 'Step 04',
-      title: 'Take Quizzes & Track Progress',
-      desc: 'Solidify your knowledge with timed assessments, earn verified certificates, and showcase your achievements.',
+      step: 'Langkah 04',
+      title: 'Kerjakan Kuis & Pantau Progres',
+      desc: 'Perkuat pemahaman lewat evaluasi, dapatkan sertifikat terverifikasi, dan tunjukkan pencapaianmu.',
       icon: <CheckCircle2 className="w-6 h-6 text-white" />,
     },
   ];
 
   const stats = [
-    { number: '20,000+', label: 'Active Students', icon: <Users className="w-5 h-5 text-blue" /> },
-    { number: '500+', label: 'Expert Instructors', icon: <GraduationCap className="w-5 h-5 text-blue" /> },
-    { number: '1,200+', label: 'Courses Available', icon: <Layers className="w-5 h-5 text-blue" /> },
-    { number: '95%', label: 'Success Rate', icon: <Percent className="w-5 h-5 text-blue" /> },
+    { number: '20.000+', label: 'Peserta Aktif', icon: <Users className="w-5 h-5 text-blue" /> },
+    { number: '500+', label: 'Pengajar Ahli', icon: <GraduationCap className="w-5 h-5 text-blue" /> },
+    { number: '1.200+', label: 'Kursus Tersedia', icon: <Layers className="w-5 h-5 text-blue" /> },
+    { number: '95%', label: 'Tingkat Keberhasilan', icon: <Percent className="w-5 h-5 text-blue" /> },
   ];
 
   return (
@@ -101,12 +102,12 @@ export const LandingPage: React.FC = () => {
               {/* Overline pill */}
               <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-soft-blue text-blue border border-blue/20 text-xs font-bold uppercase tracking-wider mb-5">
                 <span className="w-2 h-2 rounded-full bg-blue animate-pulse" />
-                BEST ONLINE EDUCATION
+                PENDIDIKAN DARING TERBAIK
               </div>
 
               {/* H1 Title */}
               <h1 className="text-4xl sm:text-5xl lg:text-[50px] font-extrabold text-text-heading tracking-tight leading-[1.15] mb-6">
-                Build Your Future With{' '}
+                Bangun Masa Depan Bersama{' '}
                 <span className="text-blue relative inline-block">
                   EduSpace
                   {/* Hand-drawn SVG underline */}
@@ -128,7 +129,7 @@ export const LandingPage: React.FC = () => {
 
               {/* Paragraph */}
               <p className="text-base sm:text-lg text-slate-600 leading-relaxed mb-8 max-w-xl">
-                Find courses, learn at your own pace, take quizzes and track your progress, all in one online learning platform.
+                Temukan kursus, belajar sesuai ritmemu, kerjakan kuis, dan pantau progres dalam satu platform pembelajaran daring.
               </p>
 
               {/* Action Buttons */}
@@ -139,7 +140,7 @@ export const LandingPage: React.FC = () => {
                   onClick={() => navigate('/courses')}
                   rightIcon={<ArrowRight className="w-4 h-4" />}
                 >
-                  Explore Courses
+                  Jelajahi Kursus
                 </Button>
 
                 <Button
@@ -148,7 +149,7 @@ export const LandingPage: React.FC = () => {
                   onClick={() => navigate('/courses/web-development-bootcamp-2025')}
                   leftIcon={<Play className="w-4 h-4 text-orange fill-orange" />}
                 >
-                  Learn More
+                  Pelajari Lebih Lanjut
                 </Button>
               </div>
 
@@ -159,8 +160,8 @@ export const LandingPage: React.FC = () => {
                     <ShieldCheck className="w-5 h-5 text-blue" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-text-heading">Accredited Degrees</h4>
-                    <p className="text-xs text-slate-500">Verified certificates</p>
+                    <h4 className="text-sm font-bold text-text-heading">Program Terakreditasi</h4>
+                    <p className="text-xs text-slate-500">Sertifikat terverifikasi</p>
                   </div>
                 </div>
 
@@ -169,8 +170,8 @@ export const LandingPage: React.FC = () => {
                     <Award className="w-5 h-5 text-blue" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-text-heading">Top Mentors</h4>
-                    <p className="text-xs text-slate-500">From leading tech firms</p>
+                    <h4 className="text-sm font-bold text-text-heading">Mentor Terbaik</h4>
+                    <p className="text-xs text-slate-500">Dari perusahaan teknologi terkemuka</p>
                   </div>
                 </div>
               </div>
@@ -189,7 +190,7 @@ export const LandingPage: React.FC = () => {
               <div className="relative w-full max-w-[420px] aspect-[4/5] rounded-3xl overflow-hidden shadow-soft-lg border-4 border-white bg-blue">
                 <img
                   src={media.hero.mainImage}
-                  alt="Students learning on EduSpace"
+                  alt="Peserta belajar di EduSpace"
                   className="w-full h-full object-cover mix-blend-normal"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-navy/60 via-transparent to-transparent pointer-events-none" />
@@ -206,7 +207,7 @@ export const LandingPage: React.FC = () => {
                       20K+
                     </span>
                     <span className="text-[11px] font-semibold text-slate-500 block">
-                      Active Students
+                      Peserta Aktif
                     </span>
                   </div>
                 </div>
@@ -221,7 +222,7 @@ export const LandingPage: React.FC = () => {
                       95%
                     </span>
                     <span className="text-[11px] font-semibold text-slate-500 block">
-                      Success Rate
+                      Tingkat Keberhasilan
                     </span>
                   </div>
                 </div>
@@ -237,13 +238,13 @@ export const LandingPage: React.FC = () => {
           {/* Centered Title & Subtitle */}
           <div className="text-center max-w-2xl mx-auto mb-12">
             <span className="text-xs font-bold uppercase tracking-widest text-blue block mb-2">
-              FEATURED CURRICULUM
+              KURIKULUM PILIHAN
             </span>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-text-heading tracking-tight mb-3">
-              Explore Our Featured Courses
+              Jelajahi Kursus Pilihan
             </h2>
             <p className="text-slate-600 text-sm sm:text-base leading-relaxed">
-              Explore curated professional courses led by industry veterans to advance your career.
+              Pilih kursus profesional yang dipandu praktisi industri untuk mengembangkan kariermu.
             </p>
           </div>
 
@@ -262,7 +263,7 @@ export const LandingPage: React.FC = () => {
               onClick={() => navigate('/courses')}
               rightIcon={<ArrowRight className="w-4 h-4" />}
             >
-              View All Courses
+              Lihat Semua Kursus
             </Button>
           </div>
         </div>
@@ -273,13 +274,13 @@ export const LandingPage: React.FC = () => {
         <div className="max-w-[1200px] mx-auto px-4 sm:px-8">
           <div className="text-center max-w-2xl mx-auto mb-12">
             <span className="text-xs font-bold uppercase tracking-widest text-blue block mb-2">
-              EXPLORE BY TOPIC
+              JELAJAHI BERDASARKAN TOPIK
             </span>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-text-heading tracking-tight mb-3">
-              Course Categories
+              Kategori Kursus
             </h2>
             <p className="text-slate-600 text-sm sm:text-base leading-relaxed">
-              Discover industry-focused learning tracks crafted to prepare you for high-impact roles.
+              Temukan program belajar yang dirancang untuk mempersiapkanmu menghadapi kebutuhan industri.
             </p>
           </div>
 
@@ -296,10 +297,10 @@ export const LandingPage: React.FC = () => {
                   {cat.icon}
                 </div>
                 <h3 className="text-lg font-bold text-text-heading mb-1.5 group-hover:text-blue transition-colors">
-                  {cat.name}
+                  {translateCategory(cat.name)}
                 </h3>
                 <span className="text-xs font-semibold text-slate-500">
-                  {cat.count} Courses
+                  {cat.count} Kursus
                 </span>
               </Card>
             ))}
@@ -312,13 +313,13 @@ export const LandingPage: React.FC = () => {
         <div className="max-w-[1200px] mx-auto px-4 sm:px-8">
           <div className="text-center max-w-2xl mx-auto mb-14">
             <span className="text-xs font-bold uppercase tracking-widest text-blue block mb-2">
-              SEAMLESS LEARNING
+              BELAJAR LEBIH MUDAH
             </span>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-text-heading tracking-tight mb-3">
-              How It Works
+              Cara Kerja
             </h2>
             <p className="text-slate-600 text-sm sm:text-base leading-relaxed">
-              Follow our simple four-step pathway from initial onboarding to verified course graduation.
+              Ikuti empat langkah mudah, mulai dari pendaftaran hingga menyelesaikan kursus dan memperoleh sertifikat.
             </p>
           </div>
 
@@ -349,13 +350,13 @@ export const LandingPage: React.FC = () => {
         <div className="max-w-[1200px] mx-auto px-4 sm:px-8">
           <div className="text-center max-w-2xl mx-auto mb-14">
             <span className="text-xs font-bold uppercase tracking-widest text-blue block mb-2">
-              ABOUT EDUSPACE
+              TENTANG EDUSPACE
             </span>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-text-heading tracking-tight mb-3">
-              Empowering 20,000+ Learners Worldwide
+              Mendukung Lebih dari 20.000 Peserta
             </h2>
             <p className="text-slate-600 text-sm sm:text-base leading-relaxed">
-              We bridge the gap between academic theory and high-growth industry standards through real-world mentorship, hands-on coding labs, and accredited credentials.
+              Kami menghubungkan teori dengan kebutuhan industri melalui bimbingan praktisi, latihan langsung, dan sertifikasi terakreditasi.
             </p>
           </div>
 
@@ -364,9 +365,9 @@ export const LandingPage: React.FC = () => {
               <div className="w-14 h-14 rounded-2xl bg-soft-blue text-blue flex items-center justify-center mb-5">
                 <ShieldCheck className="w-7 h-7" />
               </div>
-              <h3 className="text-lg font-bold text-text-heading mb-2">Accredited Certifications</h3>
+              <h3 className="text-lg font-bold text-text-heading mb-2">Sertifikasi Terakreditasi</h3>
               <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
-                Graduates receive verified digital credentials recognized by global tech employers and industry advisory councils.
+                Peserta yang lulus memperoleh sertifikat digital terverifikasi yang diakui oleh perusahaan teknologi dan praktisi industri.
               </p>
             </Card>
 
@@ -374,9 +375,9 @@ export const LandingPage: React.FC = () => {
               <div className="w-14 h-14 rounded-2xl bg-orange-tint text-orange flex items-center justify-center mb-5">
                 <GraduationCap className="w-7 h-7" />
               </div>
-              <h3 className="text-lg font-bold text-text-heading mb-2">Staff Engineer Mentors</h3>
+              <h3 className="text-lg font-bold text-text-heading mb-2">Mentor Berpengalaman</h3>
               <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
-                Learn directly from veterans with real architecture backgrounds from Meta, Stripe, Google, and top unicorn startups.
+                Belajar langsung dari praktisi berpengalaman di bidang arsitektur perangkat lunak dan perusahaan teknologi terkemuka.
               </p>
             </Card>
 
@@ -384,9 +385,9 @@ export const LandingPage: React.FC = () => {
               <div className="w-14 h-14 rounded-2xl bg-green-tint text-green flex items-center justify-center mb-5">
                 <Award className="w-7 h-7" />
               </div>
-              <h3 className="text-lg font-bold text-text-heading mb-2">Interactive Code Labs</h3>
+              <h3 className="text-lg font-bold text-text-heading mb-2">Lab Koding Interaktif</h3>
               <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
-                Gain muscle memory through timed module assessments, in-browser sandbox exercises, and weekly live breakout code reviews.
+                Asah keterampilan melalui evaluasi, latihan langsung di browser, dan sesi ulasan kode.
               </p>
             </Card>
           </div>
@@ -435,35 +436,35 @@ export const LandingPage: React.FC = () => {
                 {/* Overline Badge */}
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-orange-200 border border-white/20 text-xs font-bold uppercase tracking-wider mb-4">
                   <span className="w-2 h-2 rounded-full bg-orange animate-pulse" />
-                  <span>START YOUR JOURNEY TODAY</span>
+                  <span>MULAI PERJALANANMU HARI INI</span>
                 </div>
 
                 {/* Heading with Ultra-High Contrast */}
                 <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight leading-tight mb-4">
-                  Ready to start{' '}
+                  Siap untuk mulai{' '}
                   <span className="text-[#FFAE19] drop-shadow-sm inline-block underline decoration-[#FFAE19]/40 underline-offset-8">
-                    learning?
+                    belajar?
                   </span>
                 </h2>
 
                 {/* Subtitle with High-Contrast White/Slate */}
                 <p className="text-slate-100 text-base sm:text-lg leading-relaxed mb-6 font-normal">
-                  Join over 20,000 active students advancing their tech, design, and business careers with verified credentials today.
+                  Bergabunglah dengan lebih dari 20.000 peserta yang mengembangkan karier di bidang teknologi, desain, dan bisnis.
                 </p>
 
                 {/* Feature Checkpoints */}
                 <div className="flex flex-wrap items-center gap-4 text-xs font-semibold text-slate-200 justify-center lg:justify-start">
                   <span className="flex items-center gap-1.5">
                     <Check className="w-4 h-4 text-orange" />
-                    <span>No credit card required to explore</span>
+                    <span>Tidak perlu kartu kredit untuk menjelajah</span>
                   </span>
                   <span className="flex items-center gap-1.5">
                     <Check className="w-4 h-4 text-orange" />
-                    <span>30-Day Money-Back Guarantee</span>
+                    <span>Garansi uang kembali 30 hari</span>
                   </span>
                   <span className="flex items-center gap-1.5">
                     <Check className="w-4 h-4 text-orange" />
-                    <span>Instant Course Access</span>
+                    <span>Akses kursus langsung</span>
                   </span>
                 </div>
               </div>
@@ -475,14 +476,14 @@ export const LandingPage: React.FC = () => {
                   onClick={() => navigate('/register')}
                   className="w-full sm:w-auto px-8 py-4 rounded-xl bg-orange hover:bg-orange-dark text-white font-extrabold text-base shadow-lg shadow-orange/30 transition-all hover:scale-105 active:scale-95 text-center cursor-pointer"
                 >
-                  Register Now
+                  Daftar Sekarang
                 </button>
                 <button
                   type="button"
                   onClick={() => navigate('/courses')}
                   className="w-full sm:w-auto px-8 py-4 rounded-xl bg-white hover:bg-slate-100 text-navy font-extrabold text-base shadow-md transition-all hover:scale-105 active:scale-95 text-center border-none cursor-pointer"
                 >
-                  Browse Courses
+                  Jelajahi Kursus
                 </button>
               </div>
             </div>
@@ -495,13 +496,13 @@ export const LandingPage: React.FC = () => {
         <div className="max-w-[1200px] mx-auto px-4 sm:px-8">
           <div className="text-center max-w-xl mx-auto mb-10">
             <span className="text-xs font-bold uppercase tracking-widest text-blue block mb-2">
-              CONTACT & CAMPUS
+              KONTAK & KAMPUS
             </span>
             <h2 className="text-2xl sm:text-3xl font-extrabold text-text-heading tracking-tight mb-2">
-              We're Here to Help You Succeed
+              Kami Siap Membantumu Berhasil
             </h2>
             <p className="text-slate-500 text-xs sm:text-sm">
-              Have questions regarding admissions, corporate cohort packages, or syllabus accreditation? Get in touch with our advisory team.
+              Ada pertanyaan tentang pendaftaran, program perusahaan, atau akreditasi kurikulum? Hubungi tim kami.
             </p>
           </div>
 
@@ -510,8 +511,8 @@ export const LandingPage: React.FC = () => {
               <div className="w-10 h-10 rounded-xl bg-soft-blue text-blue flex items-center justify-center mb-3">
                 <Mail className="w-5 h-5" />
               </div>
-              <h4 className="text-sm font-bold text-text-heading mb-1">Email Advisory</h4>
-              <p className="text-xs text-slate-500 mb-2">Direct assistance within 2 hours</p>
+              <h4 className="text-sm font-bold text-text-heading mb-1">Bantuan Email</h4>
+              <p className="text-xs text-slate-500 mb-2">Kami akan merespons dalam 2 jam</p>
               <a href="mailto:info@eduspace.com" className="text-xs font-bold text-blue hover:underline">
                 info@eduspace.com
               </a>
@@ -521,8 +522,8 @@ export const LandingPage: React.FC = () => {
               <div className="w-10 h-10 rounded-xl bg-orange-tint text-orange flex items-center justify-center mb-3">
                 <Phone className="w-5 h-5" />
               </div>
-              <h4 className="text-sm font-bold text-text-heading mb-1">Student Hotline</h4>
-              <p className="text-xs text-slate-500 mb-2">Mon - Fri, 09:00 - 18:00 WIB</p>
+              <h4 className="text-sm font-bold text-text-heading mb-1">Layanan Peserta</h4>
+              <p className="text-xs text-slate-500 mb-2">Senin - Jumat, 09.00 - 18.00 WIB</p>
               <a href="tel:+12345678900" className="text-xs font-bold text-orange hover:underline">
                 +1 234 567 8900
               </a>
@@ -532,10 +533,10 @@ export const LandingPage: React.FC = () => {
               <div className="w-10 h-10 rounded-xl bg-green-tint text-green flex items-center justify-center mb-3">
                 <MapPin className="w-5 h-5" />
               </div>
-              <h4 className="text-sm font-bold text-text-heading mb-1">Global Campus Hub</h4>
-              <p className="text-xs text-slate-500 mb-2">Level 18, EduSpace Tower</p>
+              <h4 className="text-sm font-bold text-text-heading mb-1">Pusat Kampus</h4>
+              <p className="text-xs text-slate-500 mb-2">Lantai 18, EduSpace Tower</p>
               <span className="text-xs font-bold text-slate-700">
-                Jakarta & Singapore
+                Jakarta & Singapura
               </span>
             </Card>
           </div>

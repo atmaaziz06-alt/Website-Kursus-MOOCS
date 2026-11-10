@@ -27,7 +27,7 @@ export const TopContactBar: React.FC = () => {
 
         {/* Right: Social Media */}
         <div className="flex items-center gap-3 text-slate-200">
-          <span className="text-slate-300 font-medium">Follow Us:</span>
+          <span className="text-slate-300 font-medium">Ikuti Kami:</span>
           <div className="flex items-center gap-2">
             <a
               href="#social"

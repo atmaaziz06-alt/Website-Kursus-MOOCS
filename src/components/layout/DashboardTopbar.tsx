@@ -22,13 +22,15 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
     return getUserAvatar(user?.avatarId || 'dian-paramitha');
   };
 
+  const roleLabel = role === 'participant' ? 'Peserta' : role === 'instructor' ? 'Pengajar' : 'Admin';
+
   const getPill = () => {
     if (titleBadge) return titleBadge;
     if (role === 'instructor') {
       return (
         <div className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-soft-blue text-blue text-xs font-bold border border-blue/20">
           <Sparkles className="w-3.5 h-3.5" />
-          <span>Term 2 Grading Period Ends in 4 Days</span>
+          <span>Periode penilaian semester 2 berakhir dalam 4 hari</span>
         </div>
       );
     }
@@ -36,14 +38,14 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
       return (
         <div className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-tint text-green text-xs font-bold border border-green/20">
           <span className="w-2 h-2 rounded-full bg-green animate-pulse" />
-          <span>All Systems Operational</span>
+          <span>Semua sistem beroperasi normal</span>
         </div>
       );
     }
     return (
       <div className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-tint text-orange-dark text-xs font-bold border border-orange/20">
         <Flame className="w-3.5 h-3.5 text-orange" />
-        <span>5-Day Streak</span>
+        <span>Belajar 5 hari berturut-turut</span>
       </div>
     );
   };
@@ -56,7 +58,7 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
           type="button"
           onClick={onToggleSidebar}
           className="lg:hidden p-2 rounded-xl text-slate-600 hover:text-navy hover:bg-slate-100 transition-colors"
-          aria-label="Open navigation menu"
+          aria-label="Buka menu navigasi"
         >
           <Menu className="w-5 h-5" />
         </button>
@@ -67,10 +69,10 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
             type="text"
             placeholder={
               role === 'admin'
-                ? 'Search courses, instructors, students, or system logs...'
+                ? 'Cari kursus, pengajar, peserta, atau log sistem...'
                 : role === 'instructor'
-                ? 'Search courses, students, reports...'
-                : 'Search courses, lessons, notes...'
+                ? 'Cari kursus, peserta, laporan...'
+                : 'Cari kursus, pelajaran, catatan...'
             }
             className="w-full bg-slate-50 text-xs sm:text-sm text-slate-800 rounded-xl border border-border pl-10 pr-3.5 py-2 transition-all focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue/20 focus:border-blue placeholder:text-slate-400"
           />
@@ -85,7 +87,7 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
         <button
           type="button"
           className="relative w-9 h-9 rounded-xl border border-border flex items-center justify-center text-slate-600 hover:text-navy hover:bg-slate-50 transition-colors"
-          aria-label="Notifications"
+          aria-label="Notifikasi"
         >
           <Bell className="w-4 h-4" />
           <span className="w-2 h-2 rounded-full bg-orange absolute top-2 right-2 ring-2 ring-white" />
@@ -106,7 +108,7 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
               {user?.name || 'Dian Paramitha'}
             </span>
             <span className="text-[10px] text-slate-400 font-semibold block capitalize">
-              {user?.title || role}
+              {user?.title || roleLabel}
             </span>
           </div>
         </div>
@@ -114,4 +116,3 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
     </header>
   );
 };
-

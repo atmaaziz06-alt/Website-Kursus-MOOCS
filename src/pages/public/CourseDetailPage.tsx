@@ -22,6 +22,8 @@ import {
 } from 'lucide-react';
 import { primaryWebDevCourse, mockCourses } from '../../data/mockData';
 import { getCourseMedia, getInstructorPhoto } from '../../config/media';
+import { formatIDR } from '../../config/currency';
+import { translateCategory, translateLevel } from '../../config/locale';
 import { Button, Card, Avatar, ProgressBar } from '../../components/ui';
 import { CourseCard } from '../../components/course/CourseCard';
 import { TwitterIcon, LinkedinIcon } from '../../components/ui/SocialIcons';
@@ -41,6 +43,7 @@ export const CourseDetailPage: React.FC = () => {
   const instructorPhoto = getInstructorPhoto(course.instructor.id);
 
   const [activeTab, setActiveTab] = useState('overview');
+  const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     'sec-1': true,
     'sec-4': true,
@@ -49,7 +52,7 @@ export const CourseDetailPage: React.FC = () => {
   const [enrollmentError, setEnrollmentError] = useState(() => {
     const state = location.state as { enrollmentRoleError?: boolean } | null;
     return state?.enrollmentRoleError
-      ? 'Only participant accounts can enroll in courses. Please sign in as a participant.'
+      ? 'Hanya akun peserta yang dapat mengikuti kursus. Silakan masuk sebagai peserta.'
       : '';
   });
   const isEnrolled = enrolledCourses.some((enrollment) => enrollment.courseSlug === course.slug);
@@ -63,7 +66,7 @@ export const CourseDetailPage: React.FC = () => {
       return;
     }
     if (role !== 'participant') {
-      setEnrollmentError('Only participant accounts can enroll in courses. Please sign in as a participant.');
+      setEnrollmentError('Hanya akun peserta yang dapat mengikuti kursus. Silakan masuk sebagai peserta.');
       return;
     }
     if (isEnrolled) {
@@ -94,10 +97,10 @@ export const CourseDetailPage: React.FC = () => {
   };
 
   const tabs = [
-    { id: 'overview', label: 'Overview' },
-    { id: 'curriculum', label: `Curriculum (${course.lessonsCount})` },
-    { id: 'instructor', label: 'Instructor' },
-    { id: 'reviews', label: `Reviews (${course.rating})` },
+    { id: 'overview', label: 'Ringkasan' },
+    { id: 'curriculum', label: `Kurikulum (${course.lessonsCount})` },
+    { id: 'instructor', label: 'Pengajar' },
+    { id: 'reviews', label: `Ulasan (${course.rating})` },
   ];
 
   const handleTabClick = (tabId: string) => {
@@ -122,9 +125,9 @@ export const CourseDetailPage: React.FC = () => {
         <div className="max-w-[1200px] mx-auto px-4 sm:px-8">
           {/* Breadcrumb */}
           <nav className="flex items-center gap-2 text-xs text-slate-300 mb-6">
-            <Link to="/" className="hover:text-white transition-colors">Home</Link>
+            <Link to="/" className="hover:text-white transition-colors">Beranda</Link>
             <span>/</span>
-            <Link to="/courses" className="hover:text-white transition-colors">Courses</Link>
+            <Link to="/courses" className="hover:text-white transition-colors">Kursus</Link>
             <span>/</span>
             <span className="text-white font-semibold truncate max-w-xs">{course.title}</span>
           </nav>
@@ -132,10 +135,10 @@ export const CourseDetailPage: React.FC = () => {
           {/* Badges */}
           <div className="flex items-center gap-2.5 mb-4 flex-wrap">
             <span className="px-3 py-1 rounded-full bg-white/15 text-white border border-white/20 text-xs font-bold uppercase tracking-wider">
-              TECHNOLOGY & DEVELOPMENT
+              {translateCategory(course.category)}
             </span>
             <span className="px-3 py-1 rounded-full bg-orange text-white text-xs font-bold uppercase tracking-wider shadow-sm">
-              2025 Cohort Enrolling
+              Pendaftaran Angkatan 2025
             </span>
           </div>
 
@@ -155,23 +158,23 @@ export const CourseDetailPage: React.FC = () => {
               <div className="flex items-center gap-4 text-xs sm:text-sm text-slate-200 mb-6 flex-wrap">
                 <div className="flex items-center gap-2">
                   <Avatar src={instructorPhoto} name={course.instructor.name} size="xs" />
-                  <span>Created by <strong className="text-white">{course.instructor.name}</strong></span>
+                  <span>Dibuat oleh <strong className="text-white">{course.instructor.name}</strong></span>
                 </div>
 
                 <div className="flex items-center gap-1.5 text-amber-300">
                   <Star className="w-4 h-4 fill-amber-300 stroke-amber-400" />
                   <span className="font-bold text-white">{course.rating}</span>
-                  <span className="text-slate-300">({course.reviewCount} reviews)</span>
+                  <span className="text-slate-300">({course.reviewCount} ulasan)</span>
                 </div>
 
                 <div className="flex items-center gap-1.5">
                   <Users className="w-4 h-4 text-slate-300" />
-                  <span>{course.enrolledCount.toLocaleString()} enrolled students</span>
+                  <span>{course.enrolledCount.toLocaleString()} peserta terdaftar</span>
                 </div>
 
                 <div className="flex items-center gap-1.5">
                   <Calendar className="w-4 h-4 text-slate-300" />
-                  <span>Updated {course.lastUpdated}</span>
+                  <span>Diperbarui {course.lastUpdated}</span>
                 </div>
               </div>
 
@@ -182,7 +185,7 @@ export const CourseDetailPage: React.FC = () => {
                   <span>{course.language}</span>
                 </div>
                 <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 text-white border border-white/20 text-xs font-medium">
-                  <span>Level: Beginner to Intermediate</span>
+                  <span>Tingkat: {translateLevel(course.level)}</span>
                 </div>
               </div>
             </div>
@@ -217,14 +220,11 @@ export const CourseDetailPage: React.FC = () => {
             <Card id="overview" className="p-8">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-1.5 h-6 rounded-full bg-blue" />
-                <h2 className="text-xl font-extrabold text-text-heading">About This Course</h2>
+                <h2 className="text-xl font-extrabold text-text-heading">Tentang Kursus Ini</h2>
               </div>
               <div className="prose text-slate-600 text-sm sm:text-base leading-relaxed space-y-4">
                 <p>
-                  The Web Development Bootcamp 2025 is engineered to take you from foundational syntax to architecting enterprise-grade web applications. Designed closely with senior staff engineers from Silicon Valley and leading technology startups, this curriculum balances foundational computer science theory with production-tested tooling.
-                </p>
-                <p>
-                  Throughout this comprehensive journey, you will construct interactive Single Page Applications using React 18, engineer scalable backend microservices with Node.js and PostgreSQL, and deploy high-concurrency cloud environments with Docker and modern CI/CD pipelines.
+                  {course.description}
                 </p>
               </div>
             </Card>
@@ -233,7 +233,7 @@ export const CourseDetailPage: React.FC = () => {
             <Card className="p-8 bg-soft-blue/30 border-blue/20">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-1.5 h-6 rounded-full bg-orange" />
-                <h2 className="text-xl font-extrabold text-text-heading">What You'll Learn</h2>
+                <h2 className="text-xl font-extrabold text-text-heading">Yang Akan Kamu Pelajari</h2>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {course.learningOutcomes.map((item, idx) => (
@@ -253,7 +253,7 @@ export const CourseDetailPage: React.FC = () => {
             <Card className="p-8">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-1.5 h-6 rounded-full bg-navy" />
-                <h2 className="text-xl font-extrabold text-text-heading">Course Requirements</h2>
+                <h2 className="text-xl font-extrabold text-text-heading">Persyaratan Kursus</h2>
               </div>
               <ul className="space-y-3">
                 {course.requirements.map((req, idx) => (
@@ -271,9 +271,9 @@ export const CourseDetailPage: React.FC = () => {
                 <div className="flex items-center gap-3">
                   <div className="w-1.5 h-6 rounded-full bg-blue" />
                   <div>
-                    <h2 className="text-xl font-extrabold text-text-heading">Course Curriculum</h2>
+                    <h2 className="text-xl font-extrabold text-text-heading">Kurikulum Kursus</h2>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      5 Sections • 38 Lectures • 24h 45m total length
+                      {course.sections.length} Bagian • {course.lessonsCount} Pelajaran • Total {course.totalDuration}
                     </p>
                   </div>
                 </div>
@@ -282,7 +282,7 @@ export const CourseDetailPage: React.FC = () => {
                   onClick={collapseAllSections}
                   className="text-xs font-bold text-blue hover:text-navy transition-colors self-start sm:self-auto"
                 >
-                  Collapse / Expand All
+                  Buka / Tutup Semua
                 </button>
               </div>
 
@@ -311,7 +311,7 @@ export const CourseDetailPage: React.FC = () => {
                           </span>
                         </div>
                         <span className="text-xs text-slate-400 font-medium shrink-0">
-                          {section.lessons.length} Lectures
+                          {section.lessons.length} Pelajaran
                         </span>
                       </button>
 
@@ -336,7 +336,7 @@ export const CourseDetailPage: React.FC = () => {
                               <div className="flex items-center gap-3 shrink-0">
                                 {lesson.isPreview && (
                                   <span className="px-2 py-0.5 rounded-full bg-soft-blue text-blue text-[10px] font-bold uppercase tracking-wider">
-                                    Preview Free
+                                    Pratinjau Gratis
                                   </span>
                                 )}
                                 <span className="text-slate-400">{lesson.duration}</span>
@@ -354,7 +354,7 @@ export const CourseDetailPage: React.FC = () => {
                               </div>
                               <div className="flex items-center gap-3 shrink-0">
                                 <span className="text-[11px] font-semibold text-orange-dark">
-                                  {section.quiz.questionsCount} Questions • {section.quiz.duration}
+                                  {section.quiz.questionsCount} Pertanyaan • {section.quiz.duration}
                                 </span>
                               </div>
                             </div>
@@ -371,7 +371,7 @@ export const CourseDetailPage: React.FC = () => {
             <Card id="instructor" className="p-8">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-1.5 h-6 rounded-full bg-navy" />
-                <h2 className="text-xl font-extrabold text-text-heading">Meet Your Instructor</h2>
+                <h2 className="text-xl font-extrabold text-text-heading">Kenali Pengajarmu</h2>
               </div>
               <div className="flex flex-col sm:flex-row items-start gap-6">
                 <img
@@ -394,11 +394,11 @@ export const CourseDetailPage: React.FC = () => {
                     </div>
                     <span>•</span>
                     <div>
-                      <strong className="text-slate-700">12,450</strong> Students
+                      <strong className="text-slate-700">12.450</strong> Peserta
                     </div>
                     <span>•</span>
                     <div>
-                      <strong className="text-slate-700">8</strong> Courses
+                      <strong className="text-slate-700">8</strong> Kursus
                     </div>
                   </div>
 
@@ -410,21 +410,21 @@ export const CourseDetailPage: React.FC = () => {
                     <button
                       type="button"
                       className="w-8 h-8 rounded-lg border border-border flex items-center justify-center text-slate-500 hover:text-navy hover:bg-slate-50 transition-colors"
-                      aria-label="Twitter profile"
+                      aria-label="Profil Twitter"
                     >
                       <TwitterIcon className="w-3.5 h-3.5" />
                     </button>
                     <button
                       type="button"
                       className="w-8 h-8 rounded-lg border border-border flex items-center justify-center text-slate-500 hover:text-navy hover:bg-slate-50 transition-colors"
-                      aria-label="LinkedIn profile"
+                      aria-label="Profil LinkedIn"
                     >
                       <LinkedinIcon className="w-3.5 h-3.5" />
                     </button>
                     <button
                       type="button"
                       className="w-8 h-8 rounded-lg border border-border flex items-center justify-center text-slate-500 hover:text-navy hover:bg-slate-50 transition-colors"
-                      aria-label="Website"
+                      aria-label="Situs web"
                     >
                       <Globe className="w-3.5 h-3.5" />
                     </button>
@@ -438,7 +438,7 @@ export const CourseDetailPage: React.FC = () => {
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-1.5 h-6 rounded-full bg-orange" />
                 <h2 className="text-xl font-extrabold text-text-heading">
-                  Student Feedback & Ratings
+                  Ulasan & Penilaian Peserta
                 </h2>
               </div>
 
@@ -454,7 +454,7 @@ export const CourseDetailPage: React.FC = () => {
                     ))}
                   </div>
                   <span className="text-xs text-slate-500 block">
-                    Course Rating • 428 Reviews
+                    Penilaian Kursus • 428 Ulasan
                   </span>
                 </div>
 
@@ -468,7 +468,7 @@ export const CourseDetailPage: React.FC = () => {
                     { stars: 1, pct: 0 },
                   ].map((bar) => (
                     <div key={bar.stars} className="flex items-center gap-3 text-xs">
-                      <span className="w-12 text-slate-500">{bar.stars} stars</span>
+                      <span className="w-12 text-slate-500">{bar.stars} bintang</span>
                       <div className="flex-1">
                         <ProgressBar progress={bar.pct} color="orange" size="xs" />
                       </div>
@@ -488,7 +488,7 @@ export const CourseDetailPage: React.FC = () => {
                       <Avatar name="Sarah Jenkins" size="sm" />
                       <div>
                         <h4 className="text-xs font-bold text-text-heading">Sarah Jenkins</h4>
-                        <span className="text-[11px] text-slate-400">2 weeks ago</span>
+                        <span className="text-[11px] text-slate-400">2 minggu lalu</span>
                       </div>
                     </div>
                     <div className="flex items-center text-amber-400">
@@ -498,7 +498,7 @@ export const CourseDetailPage: React.FC = () => {
                     </div>
                   </div>
                   <p className="text-xs text-slate-600 leading-relaxed">
-                    This is undoubtedly the most structured and well-explained web development course I've ever taken. John breaks down complex React Fiber reconciliation and state closures into practical mental models.
+                    Ini adalah kursus pengembangan web paling terstruktur dan mudah dipahami yang pernah saya ikuti. John menjelaskan konsep React Fiber dan pengelolaan state yang rumit melalui contoh praktis.
                   </p>
                 </div>
 
@@ -508,7 +508,7 @@ export const CourseDetailPage: React.FC = () => {
                       <Avatar name="Budi Santoso" size="sm" />
                       <div>
                         <h4 className="text-xs font-bold text-text-heading">Budi Santoso</h4>
-                        <span className="text-[11px] text-slate-400">1 month ago</span>
+                        <span className="text-[11px] text-slate-400">1 bulan lalu</span>
                       </div>
                     </div>
                     <div className="flex items-center text-amber-400">
@@ -518,7 +518,7 @@ export const CourseDetailPage: React.FC = () => {
                     </div>
                   </div>
                   <p className="text-xs text-slate-600 leading-relaxed">
-                    The quizzes and module challenges push you to think like an engineer. Within 4 weeks of completing Module 4, I passed my technical frontend assessment!
+                    Kuis dan tantangan modul mendorong kita berpikir seperti seorang engineer. Empat minggu setelah menyelesaikan Modul 4, saya lulus evaluasi teknis frontend!
                   </p>
                 </div>
               </div>
@@ -528,31 +528,60 @@ export const CourseDetailPage: React.FC = () => {
           {/* Right Column (4 cols): Sticky Purchase Card */}
           <div className="lg:col-span-4 sticky top-24">
             <Card className="overflow-hidden shadow-soft-lg border-border">
-              {/* Video Preview Poster with Play Button */}
-              <div className="relative aspect-[16/9] w-full bg-navy overflow-hidden group cursor-pointer">
-                <img
-                  src={courseMedia.previewPoster}
-                  alt={course.title}
-                  className="w-full h-full object-cover opacity-90 transition-transform duration-300 group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-navy/30 flex flex-col items-center justify-center text-white">
-                  <div className="w-14 h-14 rounded-full bg-white/90 text-navy flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                    <Play className="w-6 h-6 fill-navy ml-1" />
-                  </div>
-                  <span className="text-xs font-bold mt-2 drop-shadow">
-                    Preview this course
-                  </span>
-                </div>
+              {/* Course video preview */}
+              <div className="relative aspect-[16/9] w-full bg-black overflow-hidden">
+                {isPreviewPlaying ? (
+                  courseMedia.previewVideoId ? (
+                    <iframe
+                      src={`https://www.youtube-nocookie.com/embed/${courseMedia.previewVideoId}?autoplay=1&rel=0`}
+                      title={courseMedia.previewVideoTitle || `Pratinjau ${course.title}`}
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      className="w-full h-full border-0"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center bg-navy p-6 text-center text-sm font-semibold text-white">
+                      Preview video belum tersedia untuk kursus ini.
+                    </div>
+                  )
+                ) : (
+                  courseMedia.previewVideoId ? (
+                    <button
+                      type="button"
+                      onClick={() => setIsPreviewPlaying(true)}
+                      className="absolute inset-0 w-full h-full group"
+                      aria-label={`Putar pratinjau ${courseMedia.previewVideoTitle || course.title}`}
+                    >
+                      <img
+                        src={courseMedia.previewPoster}
+                        alt=""
+                        className="w-full h-full object-cover opacity-90 transition-transform duration-300 group-hover:scale-105"
+                      />
+                      <span className="absolute inset-0 bg-navy/30 flex flex-col items-center justify-center text-white">
+                        <span className="w-14 h-14 rounded-full bg-white/90 text-navy flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                          <Play className="w-6 h-6 fill-navy ml-1" />
+                        </span>
+                        <span className="text-xs font-bold mt-2 drop-shadow">
+                          {courseMedia.previewVideoTitle}
+                        </span>
+                      </span>
+                    </button>
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center bg-navy p-6 text-center text-sm font-semibold text-white">
+                      Preview video belum tersedia untuk kursus ini.
+                    </div>
+                  )
+                )}
               </div>
 
               {/* Pricing & CTA */}
               <div className="p-6">
                 <div className="flex items-baseline gap-3 mb-1">
                   <span className="text-3xl font-extrabold text-text-heading">
-                    ${course.price.toFixed(2)}
+                    {formatIDR(course.price)}
                   </span>
                   <span className="text-base text-slate-400 line-through">
-                    ${course.originalPrice.toFixed(2)}
+                    {formatIDR(course.originalPrice)}
                   </span>
                   <span className="px-2 py-0.5 rounded-full bg-green-tint text-green text-xs font-bold border border-green/20">
                     45% OFF
@@ -562,7 +591,7 @@ export const CourseDetailPage: React.FC = () => {
                 {/* Urgency Alert Line */}
                 <div className="text-xs font-semibold text-red mb-5 flex items-center gap-1.5">
                   <Clock className="w-3.5 h-3.5 text-red" />
-                  <span>Special promotional price ends in 2 days!</span>
+                  <span>Harga promo berakhir dalam 2 hari!</span>
                 </div>
 
                 {/* Buttons */}
@@ -574,7 +603,7 @@ export const CourseDetailPage: React.FC = () => {
                     onClick={handleEnroll}
                     className="shadow-md"
                   >
-                    {isEnrolled ? 'Go to My Courses' : 'Enroll Now'}
+                    {isEnrolled ? 'Lihat Kursus Saya' : 'Daftar Sekarang'}
                   </Button>
 
                   <Button
@@ -584,7 +613,7 @@ export const CourseDetailPage: React.FC = () => {
                     onClick={handleEnroll}
                     className="bg-soft-blue/50 text-blue border-blue/20 hover:bg-soft-blue"
                   >
-                    {isEnrolled ? 'Course Added' : 'Add Course'}
+                    {isEnrolled ? 'Kursus Ditambahkan' : 'Tambah Kursus'}
                   </Button>
                 </div>
                 {enrollmentError && (
@@ -594,38 +623,38 @@ export const CourseDetailPage: React.FC = () => {
                 )}
 
                 <div className="text-center text-xs text-slate-400 mb-6">
-                  30-Day Money-Back Guarantee • Lifetime Access
+                  Garansi uang kembali 30 hari • Akses selamanya
                 </div>
 
                 {/* This Course Includes */}
                 <div className="pt-6 border-t border-border">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-text-heading mb-4">
-                    This Course Includes:
+                    Kursus Ini Mencakup:
                   </h4>
                   <ul className="space-y-3 text-xs text-slate-600">
                     <li className="flex items-center gap-3">
                       <Clock className="w-4 h-4 text-blue shrink-0" />
-                      <span>24.5 hours on-demand video</span>
+                      <span>{course.totalDuration} video sesuai permintaan</span>
                     </li>
                     <li className="flex items-center gap-3">
                       <Download className="w-4 h-4 text-blue shrink-0" />
-                      <span>38 downloadable resources</span>
+                      <span>Sumber belajar yang dapat diunduh</span>
                     </li>
                     <li className="flex items-center gap-3">
                       <Code2 className="w-4 h-4 text-blue shrink-0" />
-                      <span>12 practical coding challenges</span>
+                      <span>Tantangan praktik pemrograman</span>
                     </li>
                     <li className="flex items-center gap-3">
                       <Shield className="w-4 h-4 text-blue shrink-0" />
-                      <span>Full lifetime access</span>
+                      <span>Akses penuh selamanya</span>
                     </li>
                     <li className="flex items-center gap-3">
                       <Smartphone className="w-4 h-4 text-blue shrink-0" />
-                      <span>Access on mobile and desktop</span>
+                      <span>Akses melalui ponsel dan komputer</span>
                     </li>
                     <li className="flex items-center gap-3">
                       <Award className="w-4 h-4 text-blue shrink-0" />
-                      <span>Certificate of completion</span>
+                      <span>Sertifikat kelulusan</span>
                     </li>
                   </ul>
                 </div>
@@ -638,7 +667,7 @@ export const CourseDetailPage: React.FC = () => {
                     className="flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-navy"
                   >
                     <Heart className={`w-4 h-4 ${isWishlisted ? 'fill-red text-red' : ''}`} />
-                    <span>{isWishlisted ? 'Wishlisted' : 'Wishlist'}</span>
+                    <span>{isWishlisted ? 'Disimpan' : 'Simpan Kursus'}</span>
                   </button>
 
                   <button
@@ -646,7 +675,7 @@ export const CourseDetailPage: React.FC = () => {
                     className="flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-navy"
                   >
                     <Share2 className="w-4 h-4" />
-                    <span>Share</span>
+                    <span>Bagikan</span>
                   </button>
                 </div>
               </div>
@@ -659,17 +688,17 @@ export const CourseDetailPage: React.FC = () => {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
             <div>
               <h2 className="text-2xl font-extrabold text-text-heading">
-                Students Also Enrolled In
+                Peserta Juga Mengikuti
               </h2>
               <p className="text-xs text-slate-500 mt-1">
-                Frequently taken alongside this curriculum to accelerate full-stack mastery.
+                Kursus yang sering diambil bersama program ini untuk memperdalam keterampilan full-stack.
               </p>
             </div>
             <Link
               to="/courses"
               className="text-xs font-bold text-blue hover:text-navy flex items-center gap-1.5"
             >
-              <span>Explore All Courses</span>
+              <span>Jelajahi Semua Kursus</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>

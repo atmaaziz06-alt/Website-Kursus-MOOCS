@@ -39,7 +39,7 @@ export const Pagination: React.FC<PaginationProps> = ({
         disabled={currentPage <= 1}
         onClick={() => onPageChange(currentPage - 1)}
         className="inline-flex items-center justify-center w-9 h-9 rounded-xl border border-border bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-        aria-label="Previous Page"
+        aria-label="Halaman sebelumnya"
       >
         <ChevronLeft className="w-4 h-4" />
       </button>
@@ -75,11 +75,10 @@ export const Pagination: React.FC<PaginationProps> = ({
         disabled={currentPage >= totalPages}
         onClick={() => onPageChange(currentPage + 1)}
         className="inline-flex items-center justify-center w-9 h-9 rounded-xl border border-border bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-        aria-label="Next Page"
+        aria-label="Halaman berikutnya"
       >
         <ChevronRight className="w-4 h-4" />
       </button>
     </div>
   );
 };
-

@@ -6,8 +6,8 @@ export const InstructorQuizResults: React.FC = () => {
   const quizAnalytics = [
     {
       id: 'quiz-1',
-      title: 'Quiz 1: React & Frontend Architecture',
-      course: 'Web Development Bootcamp 2025',
+      title: 'Kuis 1: Arsitektur React & Frontend',
+      course: 'Bootcamp Pengembangan Web 2025',
       submissions: 1420,
       avgScore: 86.5,
       passRate: 92,
@@ -15,8 +15,8 @@ export const InstructorQuizResults: React.FC = () => {
     },
     {
       id: 'quiz-2',
-      title: 'Quiz 2: JavaScript Modern ES6+ & Async',
-      course: 'Web Development Bootcamp 2025',
+      title: 'Kuis 2: JavaScript ES6+ Modern & Asinkron',
+      course: 'Bootcamp Pengembangan Web 2025',
       submissions: 1390,
       avgScore: 89.2,
       passRate: 95,
@@ -24,8 +24,8 @@ export const InstructorQuizResults: React.FC = () => {
     },
     {
       id: 'quiz-3',
-      title: 'Quiz 3: Full-Stack Node.js & Schemas',
-      course: 'Web Development Bootcamp 2025',
+      title: 'Kuis 3: Full-Stack Node.js & Skema',
+      course: 'Bootcamp Pengembangan Web 2025',
       submissions: 0,
       avgScore: 0,
       passRate: 0,
@@ -38,11 +38,11 @@ export const InstructorQuizResults: React.FC = () => {
     <div className="max-w-[1200px] mx-auto space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-text-heading">Quiz Evaluations & Assessments</h1>
-          <p className="text-xs text-slate-500 mt-1">Review cohort quiz statistics, pass thresholds, and individual score rosters</p>
+          <h1 className="text-2xl font-extrabold text-text-heading">Evaluasi & Penilaian Kuis</h1>
+          <p className="text-xs text-slate-500 mt-1">Tinjau statistik kuis, batas kelulusan, dan daftar nilai peserta</p>
         </div>
         <Button variant="outline" size="sm" leftIcon={<Download className="w-3.5 h-3.5" />}>
-          Export Gradebook (.CSV)
+          Ekspor Daftar Nilai (.CSV)
         </Button>
       </div>
 
@@ -54,7 +54,7 @@ export const InstructorQuizResults: React.FC = () => {
                 <div className="flex items-center gap-2 mb-1">
                   <h3 className="text-base font-bold text-text-heading">{quiz.title}</h3>
                   <Badge variant={quiz.isDraft ? 'draft' : 'active'} size="xs">
-                    {quiz.isDraft ? 'Draft Syllabus' : 'Live Assessment'}
+                    {quiz.isDraft ? 'Silabus Draf' : 'Evaluasi Aktif'}
                   </Badge>
                 </div>
                 <span className="text-xs text-slate-500">{quiz.course}</span>
@@ -63,11 +63,11 @@ export const InstructorQuizResults: React.FC = () => {
               {!quiz.isDraft && (
                 <div className="flex items-center gap-4 text-xs font-semibold">
                   <div>
-                    <span className="text-slate-400 block text-[10px] uppercase">Pass Rate</span>
+                    <span className="text-slate-400 block text-[10px] uppercase">Tingkat Kelulusan</span>
                     <span className="text-green font-extrabold text-sm">{quiz.passRate}%</span>
                   </div>
                   <div>
-                    <span className="text-slate-400 block text-[10px] uppercase">Cohort Avg</span>
+                    <span className="text-slate-400 block text-[10px] uppercase">Rata-rata Angkatan</span>
                     <span className="text-navy font-extrabold text-sm">{quiz.avgScore}%</span>
                   </div>
                 </div>
@@ -77,12 +77,12 @@ export const InstructorQuizResults: React.FC = () => {
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <span className="text-xs text-slate-500">
                 {quiz.isDraft
-                  ? 'This quiz has not been published to student gradebooks yet.'
-                  : `Total verified submissions: ${quiz.submissions.toLocaleString()} students`}
+                  ? 'Kuis ini belum diterbitkan ke daftar nilai peserta.'
+                  : `Total jawaban terverifikasi: ${quiz.submissions.toLocaleString()} peserta`}
               </span>
 
               <Button variant="navy" size="sm">
-                View Detailed Submissions →
+                Lihat Rincian Jawaban →
               </Button>
             </div>
           </Card>
@@ -91,4 +91,3 @@ export const InstructorQuizResults: React.FC = () => {
     </div>
   );
 };
-

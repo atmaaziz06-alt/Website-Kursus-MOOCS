@@ -18,12 +18,12 @@ export const LoginPage: React.FC = () => {
   const demoAccounts: Record<UserRole, { email: string; label: string; route: string }> = {
     participant: {
       email: 'dian.paramitha@eduspace.ac.id',
-      label: 'Participant',
+      label: 'Peserta',
       route: '/student',
     },
     instructor: {
       email: 'john.smith@eduspace.ac.id',
-      label: 'Instructor',
+      label: 'Pengajar',
       route: '/instructor',
     },
     admin: {
@@ -49,7 +49,7 @@ export const LoginPage: React.FC = () => {
       setIsLoading(false);
       const account = demoAccounts[selectedRole];
       if (email.trim().toLowerCase() !== account.email || password !== 'password123') {
-        setErrorMessage('Invalid email or password. Please check your credentials and try again.');
+        setErrorMessage('Email atau kata sandi salah. Periksa kembali data masukmu.');
       } else {
         login(selectedRole);
         const routeState = location.state as { from?: string; enrollCourse?: string } | null;
@@ -92,13 +92,13 @@ export const LoginPage: React.FC = () => {
         {/* Header */}
         <div className="mb-6">
           <span className="text-[11px] font-bold uppercase tracking-wider text-blue block mb-1">
-            Member Access
+            Akses Anggota
           </span>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-text-heading tracking-tight mb-1.5">
-            Welcome Back
+            Selamat Datang Kembali
           </h1>
           <p className="text-xs sm:text-sm text-slate-500">
-            Login as participant, instructor, or admin
+            Masuk sebagai peserta, pengajar, atau admin
           </p>
         </div>
 
@@ -112,9 +112,9 @@ export const LoginPage: React.FC = () => {
         {/* Form */}
         <div className="mb-5">
           <label className="block text-xs font-semibold text-text-heading mb-2 uppercase tracking-wide">
-            Login as
+            Masuk sebagai
           </label>
-          <div className="grid grid-cols-3 gap-2" role="group" aria-label="Choose account role">
+          <div className="grid grid-cols-3 gap-2" role="group" aria-label="Pilih peran akun">
             {(['participant', 'instructor', 'admin'] as const).map((role) => (
               <button
                 key={role}
@@ -132,23 +132,23 @@ export const LoginPage: React.FC = () => {
             ))}
           </div>
           <p className="mt-2 text-[11px] text-slate-500">
-            Demo account: <strong>{demoAccounts[selectedRole].email}</strong> · Password: <strong>password123</strong>
+            Akun demo: <strong>{demoAccounts[selectedRole].email}</strong> · Kata sandi: <strong>password123</strong>
           </p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
-            label="Email Address"
+            label="Alamat Email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="name@example.com"
+            placeholder="nama@contoh.com"
             leftIcon={<Mail className="w-4 h-4" />}
             required
           />
 
           <div className="relative">
             <Input
-              label="Password"
+              label="Kata Sandi"
               type={showPassword ? 'text' : 'password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -159,7 +159,7 @@ export const LoginPage: React.FC = () => {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="text-slate-400 hover:text-slate-600 focus:outline-none"
-                  aria-label="Toggle password visibility"
+                  aria-label="Tampilkan atau sembunyikan kata sandi"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -172,10 +172,10 @@ export const LoginPage: React.FC = () => {
             <Checkbox
               checked={rememberMe}
               onChange={(e) => setRememberMe(e.target.checked)}
-              label="Remember me"
+              label="Ingat saya"
             />
             <a href="#forgot" className="text-xs font-semibold text-blue hover:underline">
-              Forgot password?
+              Lupa kata sandi?
             </a>
           </div>
 
@@ -187,7 +187,7 @@ export const LoginPage: React.FC = () => {
             isLoading={isLoading}
             className="mt-2"
           >
-            Login
+            Masuk
           </Button>
         </form>
 
@@ -197,7 +197,7 @@ export const LoginPage: React.FC = () => {
             <div className="w-full border-t border-border" />
           </div>
           <span className="relative bg-white px-3 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-            OR CONTINUE WITH
+            ATAU LANJUTKAN DENGAN
           </span>
         </div>
 
@@ -206,7 +206,7 @@ export const LoginPage: React.FC = () => {
           <button
             type="button"
             onClick={() => {
-              setErrorMessage('Google sign-in is not configured in this demo. Use one of the demo accounts below.');
+              setErrorMessage('Login Google belum tersedia pada demo ini. Gunakan salah satu akun demo di atas.');
             }}
             className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border border-border bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-colors"
           >
@@ -234,7 +234,7 @@ export const LoginPage: React.FC = () => {
           <button
             type="button"
             onClick={() => {
-              setErrorMessage('GitHub sign-in is not configured in this demo. Use one of the demo accounts below.');
+              setErrorMessage('Masuk dengan GitHub belum tersedia pada demo ini. Gunakan salah satu akun demo di atas.');
             }}
             className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border border-border bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-colors"
           >
@@ -245,11 +245,10 @@ export const LoginPage: React.FC = () => {
           </button>
         </div>
 
-        {/* Don't have an account */}
         <p className="text-center text-xs text-slate-500 mb-6">
-          Don't have an account?{' '}
+          Belum memiliki akun?{' '}
           <Link to="/register" className="font-bold text-navy hover:text-blue">
-            Register
+            Daftar
           </Link>
         </p>
 

@@ -20,12 +20,12 @@ export const Footer: React.FC = () => {
                   EduSpace
                 </span>
                 <span className="text-[10px] uppercase font-semibold tracking-wider text-slate-400 block mt-0.5">
-                  Learning for everyone
+                  Belajar untuk semua
                 </span>
               </div>
             </div>
             <p className="text-sm text-slate-400 leading-relaxed mb-6">
-              EduSpace is a premier online education and cohort bootcamp platform designed to empower learners worldwide through verified skills, top mentors, and real-world certifications.
+              EduSpace adalah platform pendidikan daring yang membantu peserta mengembangkan keterampilan melalui bimbingan mentor dan sertifikasi berbasis praktik.
             </p>
             <div className="flex items-center gap-2.5">
               {[FacebookIcon, TwitterIcon, InstagramIcon, LinkedinIcon].map((Icon, i) => (
@@ -33,7 +33,7 @@ export const Footer: React.FC = () => {
                   key={i}
                   href="#social"
                   className="w-9 h-9 rounded-xl bg-navy flex items-center justify-center text-slate-300 hover:text-white hover:bg-blue transition-colors"
-                  aria-label="Social link"
+                  aria-label="Tautan media sosial"
                 >
                   <Icon className="w-4 h-4" />
                 </a>
@@ -44,32 +44,32 @@ export const Footer: React.FC = () => {
           {/* Col 2: Quick Links */}
           <div>
             <h4 className="text-sm font-bold text-white uppercase tracking-wider mb-5">
-              Quick Links
+              Tautan Cepat
             </h4>
             <ul className="space-y-3 text-sm">
               <li>
                 <Link to="/" className="text-slate-400 hover:text-white transition-colors">
-                  Home
+                  Beranda
                 </Link>
               </li>
               <li>
                 <Link to="/courses" className="text-slate-400 hover:text-white transition-colors">
-                  All Courses
+                  Semua Kursus
                 </Link>
               </li>
               <li>
                 <Link to="/login" className="text-slate-400 hover:text-white transition-colors">
-                  Learner Portal
+                  Portal Peserta
                 </Link>
               </li>
               <li>
                 <Link to="/instructor" className="text-slate-400 hover:text-white transition-colors">
-                  Instructor Hub
+                  Portal Pengajar
                 </Link>
               </li>
               <li>
                 <Link to="/admin" className="text-slate-400 hover:text-white transition-colors">
-                  Admin Portal
+                  Portal Admin
                 </Link>
               </li>
             </ul>
@@ -78,32 +78,32 @@ export const Footer: React.FC = () => {
           {/* Col 3: Course Categories */}
           <div>
             <h4 className="text-sm font-bold text-white uppercase tracking-wider mb-5">
-              Categories
+              Kategori
             </h4>
             <ul className="space-y-3 text-sm">
               <li>
                 <Link to="/courses?category=Technology" className="text-slate-400 hover:text-white transition-colors">
-                  Technology (24)
+                  Teknologi (24)
                 </Link>
               </li>
               <li>
                 <Link to="/courses?category=Development" className="text-slate-400 hover:text-white transition-colors">
-                  Development (20)
+                  Pemrograman (20)
                 </Link>
               </li>
               <li>
                 <Link to="/courses?category=Business" className="text-slate-400 hover:text-white transition-colors">
-                  Business & Management (18)
+                  Bisnis & Manajemen (18)
                 </Link>
               </li>
               <li>
                 <Link to="/courses?category=Design" className="text-slate-400 hover:text-white transition-colors">
-                  UI/UX & Product Design (16)
+                  Desain UI/UX & Produk (16)
                 </Link>
               </li>
               <li>
                 <Link to="/courses?category=Marketing" className="text-slate-400 hover:text-white transition-colors">
-                  Digital Marketing (14)
+                  Pemasaran Digital (14)
                 </Link>
               </li>
             </ul>
@@ -112,12 +112,12 @@ export const Footer: React.FC = () => {
           {/* Col 4: Support & Contact */}
           <div>
             <h4 className="text-sm font-bold text-white uppercase tracking-wider mb-5">
-              Support & Campus
+              Bantuan & Kampus
             </h4>
             <ul className="space-y-3 text-sm text-slate-400">
               <li className="flex items-start gap-2.5">
                 <MapPin className="w-4 h-4 text-orange shrink-0 mt-0.5" />
-                <span>EduSpace Global Tower, Level 18, Jakarta & Singapore</span>
+                <span>EduSpace Global Tower, Lantai 18, Jakarta & Singapura</span>
               </li>
               <li className="flex items-center gap-2.5">
                 <Mail className="w-4 h-4 text-orange shrink-0" />
@@ -134,17 +134,17 @@ export const Footer: React.FC = () => {
         {/* Bottom bar */}
         <div className="pt-8 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
           <div>
-            © 2025 EduSpace. All rights reserved. Learning for everyone.
+            © 2025 EduSpace. Hak cipta dilindungi. Belajar untuk semua.
           </div>
           <div className="flex items-center gap-6">
             <a href="#privacy" className="hover:text-white transition-colors">
-              Privacy Policy
+              Kebijakan Privasi
             </a>
             <a href="#terms" className="hover:text-white transition-colors">
-              Terms of Service
+              Ketentuan Layanan
             </a>
             <a href="#sitemap" className="hover:text-white transition-colors">
-              Sitemap
+              Peta Situs
             </a>
           </div>
         </div>

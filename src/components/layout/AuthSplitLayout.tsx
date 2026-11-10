@@ -20,7 +20,7 @@ export const AuthSplitLayout: React.FC<AuthSplitLayoutProps> = ({ children, mode
         <div className="absolute inset-0">
           <img
             src={bgImage}
-            alt="EduSpace Learning Community"
+            alt="Komunitas Belajar EduSpace"
             className="w-full h-full object-cover mix-blend-overlay opacity-25"
           />
           <div className="absolute inset-0 bg-gradient-to-b from-navy/90 via-navy/95 to-navy" />
@@ -40,7 +40,7 @@ export const AuthSplitLayout: React.FC<AuthSplitLayoutProps> = ({ children, mode
             className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-300 hover:text-white transition-colors py-1.5 px-3 rounded-lg bg-white/10"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Back to Home</span>
+            <span>Kembali ke Beranda</span>
           </Link>
         </div>
 
@@ -48,17 +48,17 @@ export const AuthSplitLayout: React.FC<AuthSplitLayoutProps> = ({ children, mode
         <div className="relative z-10 my-auto py-12">
           {/* Pill */}
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-white border border-white/20 text-xs font-bold uppercase tracking-wider mb-6">
-            <span>{isLogin ? '✨ WELCOME TO EDUSPACE' : '✨ JOIN 20,000+ LEARNERS WORLDWIDE'}</span>
+            <span>{isLogin ? '✨ SELAMAT DATANG DI EDUSPACE' : '✨ BERGABUNG DENGAN 20.000+ PESERTA'}</span>
           </div>
 
           <h2 className="text-3xl lg:text-4xl font-extrabold tracking-tight leading-tight mb-4">
-            {isLogin ? 'Continue Your Learning Journey' : 'Start Your Learning Journey'}
+            {isLogin ? 'Lanjutkan Perjalanan Belajarmu' : 'Mulai Perjalanan Belajarmu'}
           </h2>
 
           <p className="text-slate-300 text-sm leading-relaxed mb-8 max-w-md">
             {isLogin
-              ? 'Access your enrolled bootcamps, resume interactive video lessons, and test your skills with real-time graded evaluations.'
-              : 'Empower your career with top-tier technical and design curricula recognized by top tech employers.'}
+              ? 'Akses kursus yang sudah kamu ikuti, lanjutkan pelajaran video interaktif, dan uji kemampuanmu dengan evaluasi langsung.'
+              : 'Kembangkan kariermu dengan materi teknologi dan desain berkualitas yang diakui oleh perusahaan terkemuka.'}
           </p>
 
           {/* Stat blocks */}
@@ -66,13 +66,13 @@ export const AuthSplitLayout: React.FC<AuthSplitLayoutProps> = ({ children, mode
             <div>
               <div className="text-2xl font-extrabold text-white">20K+</div>
               <div className="text-xs text-slate-300">
-                {isLogin ? 'Active Learners' : 'Active Learners from 85+ countries'}
+                {isLogin ? 'Peserta Aktif' : 'Peserta Aktif dari 85+ negara'}
               </div>
             </div>
             <div>
               <div className="text-2xl font-extrabold text-white">1,200+</div>
               <div className="text-xs text-slate-300">
-                {isLogin ? 'Courses Available' : 'Accredited Tracks (Tech, AI & Design)'}
+                {isLogin ? 'Kursus Tersedia' : 'Program Terakreditasi (Teknologi, AI & Desain)'}
               </div>
             </div>
           </div>
@@ -80,8 +80,8 @@ export const AuthSplitLayout: React.FC<AuthSplitLayoutProps> = ({ children, mode
           {/* 3 Feature Chips */}
           <div className="flex flex-wrap gap-2">
             {(isLogin
-              ? ['Resume Anytime', 'Verified Certificates', 'Community Access']
-              : ['Lifetime Access', 'Industry Certificates', '1-on-1 Mentorship']
+              ? ['Lanjutkan Kapan Saja', 'Sertifikat Terverifikasi', 'Akses Komunitas']
+              : ['Akses Selamanya', 'Sertifikat Industri', 'Mentoring Personal']
             ).map((chip) => (
               <span
                 key={chip}
@@ -96,7 +96,7 @@ export const AuthSplitLayout: React.FC<AuthSplitLayoutProps> = ({ children, mode
 
         {/* Bottom footer credit */}
         <div className="relative z-10 text-xs text-slate-400">
-          © 2025 EduSpace Inc. Empowering curious minds everywhere.
+          © 2025 EduSpace Inc. Memberdayakan pembelajar di mana saja.
         </div>
       </div>
 
@@ -112,7 +112,7 @@ export const AuthSplitLayout: React.FC<AuthSplitLayoutProps> = ({ children, mode
               <span className="font-bold text-navy">EduSpace</span>
             </Link>
             <Link to="/" className="text-xs text-slate-500 hover:text-navy flex items-center gap-1">
-              <ArrowLeft className="w-3 h-3" /> Home
+              <ArrowLeft className="w-3 h-3" /> Beranda
             </Link>
           </div>
 

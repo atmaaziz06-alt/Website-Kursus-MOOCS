@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 
 export const PlaceholderPage: React.FC<{ title: string; subtitle?: string; backUrl?: string }> = ({
   title,
-  subtitle = 'This module is configured and ready for implementation.',
+  subtitle = 'Modul ini sudah disiapkan dan siap untuk dikembangkan.',
   backUrl = '/',
 }) => {
   return (
@@ -17,9 +17,8 @@ export const PlaceholderPage: React.FC<{ title: string; subtitle?: string; backU
         to={backUrl}
         className="text-xs font-bold text-white bg-navy hover:bg-navy-dark px-4 py-2.5 rounded-xl transition-colors"
       >
-        ← Return Back
+        ← Kembali
       </Link>
     </div>
   );
 };
-

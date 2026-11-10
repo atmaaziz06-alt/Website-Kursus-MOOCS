@@ -9,38 +9,38 @@ export const StudentQuizResults: React.FC = () => {
   const quizzes = [
     {
       id: 'quiz-react-hooks',
-      title: 'Quiz 1: React & Frontend Fundamentals',
-      course: 'Web Development Bootcamp 2025',
-      module: 'Module 4: React & Frontend Architecture',
+      title: 'Kuis 1: Dasar React & Frontend',
+      course: 'Bootcamp Pengembangan Web 2025',
+      module: 'Modul 4: Arsitektur React & Frontend',
       score: 80,
       total: 100,
       grade: 'B+',
       status: 'Passed',
-      date: 'May 28, 2025',
+      date: '28 Mei 2025',
       timeTaken: '12:30 / 20:00',
     },
     {
       id: 'quiz-mod-1',
-      title: 'Quiz 01: Web Foundations & DOM Tree',
-      course: 'Web Development Bootcamp 2025',
-      module: 'Module 1: Modern Web Foundations',
+      title: 'Kuis 01: Dasar Web & DOM Tree',
+      course: 'Bootcamp Pengembangan Web 2025',
+      module: 'Modul 1: Dasar Web Modern',
       score: 90,
       total: 100,
       grade: 'A',
       status: 'Passed',
-      date: 'May 14, 2025',
+      date: '14 Mei 2025',
       timeTaken: '10:45 / 15:00',
     },
     {
       id: 'quiz-py-1',
-      title: 'Quiz 01: Python Object-Oriented Patterns',
-      course: 'Python Programming From Scratch',
-      module: 'Module 3: Classes & Inheritance',
+      title: 'Kuis 01: Pola Pemrograman Berorientasi Objek Python',
+      course: 'Belajar Pemrograman Python dari Nol',
+      module: 'Modul 3: Kelas & Pewarisan',
       score: 100,
       total: 100,
       grade: 'A+',
       status: 'Passed',
-      date: 'April 22, 2025',
+      date: '22 April 2025',
       timeTaken: '14:10 / 20:00',
     },
   ];
@@ -49,8 +49,8 @@ export const StudentQuizResults: React.FC = () => {
     <div className="max-w-[1200px] mx-auto space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-text-heading">Quiz Evaluations & Records</h1>
-          <p className="text-xs text-slate-500 mt-1">Review your completed module quizzes, score breakdowns, and instructor feedback</p>
+          <h1 className="text-2xl font-extrabold text-text-heading">Evaluasi & Riwayat Kuis</h1>
+          <p className="text-xs text-slate-500 mt-1">Lihat kuis modul yang telah diselesaikan, rincian nilai, dan masukan pengajar</p>
         </div>
       </div>
 
@@ -64,16 +64,16 @@ export const StudentQuizResults: React.FC = () => {
               <div>
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <Badge variant="active" size="xs">
-                    {q.status} (Grade: {q.grade})
+                    {q.status === 'Passed' ? 'Lulus' : 'Belum Lulus'} (Nilai: {q.grade})
                   </Badge>
-                  <span className="text-xs text-slate-400">• Completed on {q.date}</span>
+                  <span className="text-xs text-slate-400">• Diselesaikan pada {q.date}</span>
                 </div>
                 <h3 className="text-base font-bold text-text-heading mb-1">{q.title}</h3>
                 <p className="text-xs text-slate-500">{q.course} • {q.module}</p>
                 <div className="flex items-center gap-4 text-xs text-slate-500 mt-2">
                   <span className="flex items-center gap-1">
                     <Clock className="w-3.5 h-3.5 text-slate-400" />
-                    Time: {q.timeTaken}
+                    Waktu: {q.timeTaken}
                   </span>
                 </div>
               </div>
@@ -82,7 +82,7 @@ export const StudentQuizResults: React.FC = () => {
             <div className="flex items-center gap-4 self-end sm:self-center">
               <div className="text-right">
                 <span className="text-2xl font-extrabold text-navy block leading-none">{q.score}</span>
-                <span className="text-[10px] text-slate-400 uppercase font-semibold">/ {q.total} Pts</span>
+                <span className="text-[10px] text-slate-400 uppercase font-semibold">/ {q.total} Poin</span>
               </div>
               <Button
                 variant="navy"
@@ -90,7 +90,7 @@ export const StudentQuizResults: React.FC = () => {
                 onClick={() => navigate(`/quiz/${q.id}/result`)}
                 rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
               >
-                Review Breakdown
+                Lihat Rincian Nilai
               </Button>
             </div>
           </Card>
@@ -99,4 +99,3 @@ export const StudentQuizResults: React.FC = () => {
     </div>
   );
 };
-

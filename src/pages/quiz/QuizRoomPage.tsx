@@ -95,16 +95,16 @@ export const QuizRoomPage: React.FC = () => {
             type="button"
             onClick={() => navigate('/student')}
             className="w-9 h-9 rounded-xl border border-border flex items-center justify-center text-slate-500 hover:text-navy hover:bg-slate-50 transition-colors"
-            title="Exit Exam Environment"
+            title="Keluar dari Ujian"
           >
             <X className="w-5 h-5" />
           </button>
           <div>
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight">
-              WEB DEVELOPMENT BOOTCAMP 2025
+              BOOTCAMP PENGEMBANGAN WEB 2025
             </span>
             <span className="text-xs sm:text-sm font-extrabold text-text-heading block leading-tight">
-              Quiz 1: React & Frontend Fundamentals
+              Kuis 1: Dasar React & Frontend
             </span>
           </div>
         </div>
@@ -118,7 +118,7 @@ export const QuizRoomPage: React.FC = () => {
               viewMode === 'questions' ? 'bg-white text-navy shadow-sm' : 'text-slate-600'
             }`}
           >
-            Questions
+            Pertanyaan
           </button>
           <button
             type="button"
@@ -127,7 +127,7 @@ export const QuizRoomPage: React.FC = () => {
               viewMode === 'grid' ? 'bg-white text-navy shadow-sm' : 'text-slate-600'
             }`}
           >
-            Review Grid
+            Ringkasan Soal
           </button>
         </div>
 
@@ -138,7 +138,7 @@ export const QuizRoomPage: React.FC = () => {
               Dian Paramitha
             </span>
             <span className="text-[10px] text-slate-400 font-semibold block">
-              Student ID #84920
+              ID Peserta #84920
             </span>
           </div>
           <Avatar src={userAvatar} name="Dian Paramitha" size="sm" />
@@ -151,10 +151,10 @@ export const QuizRoomPage: React.FC = () => {
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
           <div>
             <div className="text-xs font-semibold text-slate-400 mb-1">
-              Web Development Bootcamp 2025 • Module 4 Comprehensive Evaluation
+              Bootcamp Pengembangan Web 2025 • Evaluasi Komprehensif Modul 4
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-text-heading">
-              Web Development Quiz 1: React & Frontend Architecture
+              Kuis Pengembangan Web 1: Arsitektur React & Frontend
             </h1>
           </div>
 
@@ -166,7 +166,7 @@ export const QuizRoomPage: React.FC = () => {
               </div>
               <div>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight">
-                  REMAINING TIME
+                  SISA WAKTU
                 </span>
                 <span className="text-lg font-extrabold text-orange font-mono">
                   {formatTime(timeLeft)}
@@ -180,7 +180,7 @@ export const QuizRoomPage: React.FC = () => {
               onClick={handleToggleFlag}
               leftIcon={<Flag className={`w-4 h-4 ${flagged[currentQ.id] ? 'fill-white' : ''}`} />}
             >
-              {flagged[currentQ.id] ? 'Flagged' : 'Flag for Review'}
+              {flagged[currentQ.id] ? 'Ditandai' : 'Tandai untuk Ditinjau'}
             </Button>
           </div>
         </div>
@@ -194,22 +194,22 @@ export const QuizRoomPage: React.FC = () => {
               <div className="flex items-center justify-between pb-4 border-b border-border mb-6 flex-wrap gap-2">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="px-3 py-1 rounded-full bg-soft-blue text-blue text-xs font-bold uppercase">
-                    Question {String(currentQ.id).padStart(2, '0')} of 10
+                    Pertanyaan {String(currentQ.id).padStart(2, '0')} dari 10
                   </span>
                   <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold">
                     {currentQ.topic}
                   </span>
                 </div>
                 <span className="text-xs font-bold text-navy px-2.5 py-1 rounded-lg bg-navy/10">
-                  {currentQ.points} Points
+                  {currentQ.points} Poin
                 </span>
               </div>
 
               {/* Segmented Progress Bar (10 segments) */}
               <div className="mb-6">
                 <div className="flex justify-between text-xs text-slate-500 font-semibold mb-1.5">
-                  <span>Progress: {Math.round((answeredCount / totalQuestions) * 100)}% answered</span>
-                  <span className="text-navy font-bold">Target passing grade: 80%</span>
+                  <span>Progres: {Math.round((answeredCount / totalQuestions) * 100)}% terjawab</span>
+                  <span className="text-navy font-bold">Target nilai kelulusan: 80%</span>
                 </div>
                 <div className="grid grid-cols-10 gap-1.5 h-2">
                   {quiz.questions.map((q) => {
@@ -312,14 +312,14 @@ export const QuizRoomPage: React.FC = () => {
                     onClick={() => setCurrentIdx((prev) => Math.max(0, prev - 1))}
                     leftIcon={<ChevronLeft className="w-4 h-4" />}
                   >
-                    Previous Question
+                    Pertanyaan Sebelumnya
                   </Button>
                   <button
                     type="button"
                     onClick={handleClearSelection}
                     className="text-xs font-semibold text-slate-500 hover:text-red px-3 py-2 transition-colors"
                   >
-                    Clear Selection
+                    Hapus Pilihan
                   </button>
                 </div>
 
@@ -331,7 +331,7 @@ export const QuizRoomPage: React.FC = () => {
                       onClick={() => setCurrentIdx((prev) => Math.min(totalQuestions - 1, prev + 1))}
                       rightIcon={<ChevronRight className="w-4 h-4" />}
                     >
-                      Next Question
+                      Pertanyaan Berikutnya
                     </Button>
                   ) : null}
 
@@ -340,7 +340,7 @@ export const QuizRoomPage: React.FC = () => {
                     size="md"
                     onClick={handleSubmit}
                   >
-                    Submit Quiz
+                    Kumpulkan Kuis
                   </Button>
                 </div>
               </div>
@@ -352,10 +352,10 @@ export const QuizRoomPage: React.FC = () => {
             <Card className="p-6">
               <div className="flex items-center justify-between pb-3 border-b border-border mb-4">
                 <h3 className="text-sm font-bold text-text-heading">
-                  EXAM MATRIX / Navigator
+                  NAVIGATOR UJIAN
                 </h3>
                 <span className="px-2 py-0.5 rounded-full bg-soft-blue text-blue text-xs font-bold">
-                  10 Total
+                  Total 10
                 </span>
               </div>
 
@@ -365,21 +365,21 @@ export const QuizRoomPage: React.FC = () => {
                   <div className="w-3.5 h-3.5 rounded bg-blue flex items-center justify-center text-white text-[8px]">
                     ✓
                   </div>
-                  <span>Answered</span>
+                  <span>Terjawab</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="w-3.5 h-3.5 rounded border-2 border-orange bg-white" />
-                  <span>Current Active</span>
+                  <span>Sedang Dibuka</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="w-3.5 h-3.5 rounded bg-slate-200" />
-                  <span>Unanswered</span>
+                  <span>Belum Dijawab</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="w-3.5 h-3.5 rounded bg-slate-200 relative flex items-center justify-center">
                     <span className="w-1.5 h-1.5 rounded-full bg-orange absolute" />
                   </div>
-                  <span>Flagged</span>
+                  <span>Ditandai</span>
                 </div>
               </div>
 
@@ -418,11 +418,11 @@ export const QuizRoomPage: React.FC = () => {
               {/* Session Progress bar */}
               <div className="space-y-1.5 mb-6 pb-4 border-b border-border">
                 <div className="flex justify-between text-xs font-bold text-slate-700">
-                  <span>Session Progress {Math.round((answeredCount / totalQuestions) * 100)}% Complete</span>
+                  <span>Progres Sesi {Math.round((answeredCount / totalQuestions) * 100)}% Selesai</span>
                 </div>
                 <ProgressBar progress={(answeredCount / totalQuestions) * 100} color="blue" size="xs" />
                 <div className="text-[11px] text-slate-400">
-                  {answeredCount} Answered / {totalQuestions - answeredCount} Remaining
+                  {answeredCount} Terjawab / {totalQuestions - answeredCount} Tersisa
                 </div>
               </div>
 
@@ -434,7 +434,7 @@ export const QuizRoomPage: React.FC = () => {
                 onClick={handleSubmit}
                 className="shadow-md"
               >
-                Finalize & Finish Exam
+                Akhiri & Selesaikan Ujian
               </Button>
             </Card>
 
@@ -442,7 +442,7 @@ export const QuizRoomPage: React.FC = () => {
             <div className="p-4 rounded-xl bg-soft-blue/40 border border-blue/20 flex items-start gap-2.5 text-xs text-slate-600">
               <Info className="w-4 h-4 text-blue shrink-0 mt-0.5" />
               <span>
-                Your answers are saved automatically to cloud synchronization on every selection change. You can navigate back to modify any answers before clicking Submit Quiz.
+                Jawabanmu disimpan otomatis setiap kali pilihan berubah. Kamu dapat kembali dan mengubah jawaban sebelum mengumpulkan kuis.
               </span>
             </div>
           </div>
@@ -457,14 +457,14 @@ export const QuizRoomPage: React.FC = () => {
               <AlertTriangle className="w-6 h-6" />
             </div>
             <h3 className="text-lg font-bold text-text-heading mb-2">
-              Unanswered Questions Remaining
+              Masih Ada Pertanyaan yang Belum Dijawab
             </h3>
             <p className="text-xs text-slate-600 leading-relaxed mb-6">
-              You still have <strong>{totalQuestions - answeredCount} unanswered questions</strong>. Are you sure you want to finalize your exam submission now?
+              Masih ada <strong>{totalQuestions - answeredCount} pertanyaan yang belum dijawab</strong>. Yakin ingin mengakhiri dan mengumpulkan ujian sekarang?
             </p>
             <div className="flex items-center justify-end gap-3">
               <Button variant="outline" size="sm" onClick={() => setShowConfirmModal(false)}>
-                Return to Exam
+                Kembali ke Ujian
               </Button>
               <Button
                 variant="orange"
@@ -476,7 +476,7 @@ export const QuizRoomPage: React.FC = () => {
                   navigate(`/quiz/${quizId}/result`);
                 }}
               >
-                Yes, Submit Now
+                Ya, Kumpulkan Sekarang
               </Button>
             </div>
           </Card>
@@ -486,11 +486,10 @@ export const QuizRoomPage: React.FC = () => {
       {/* 4. FOOTER */}
       <footer className="py-4 border-t border-border bg-white text-center text-xs text-slate-400">
         <div className="max-w-[1200px] mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>EduSpace LMS Secure Testing Environment</span>
-          <span>© 2025 EduSpace Inc. All activity is logged.</span>
+          <span>Lingkungan Ujian Aman LMS EduSpace</span>
+          <span>© 2025 EduSpace. Semua aktivitas tercatat.</span>
         </div>
       </footer>
     </div>
   );
 };
-

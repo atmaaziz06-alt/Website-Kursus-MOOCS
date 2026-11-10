@@ -52,10 +52,20 @@ const loadInstructorCourses = (): InstructorCourse[] => {
       throw new Error('Saved instructor courses must be an array.');
     }
     const validCourses = courses.filter(isInstructorCourse);
+    const hasLegacyPrices = validCourses.some((course) => course.price > 0 && course.price < 1000);
+    const migratedCourses = validCourses.map((course) => {
+      if (course.price > 0 && course.price < 1000) {
+        return { ...course, price: course.price * 10000 };
+      }
+      return course;
+    });
     if (validCourses.length !== courses.length) {
       console.error('Some saved instructor courses are invalid and were ignored.');
     }
-    return validCourses;
+    if (hasLegacyPrices) {
+      localStorage.setItem('eduspace_instructor_courses', JSON.stringify(migratedCourses));
+    }
+    return migratedCourses;
   } catch (error) {
     console.error('Unable to load saved instructor courses.', error);
     return [];
@@ -69,10 +79,10 @@ const initialEnrolledCourses: EnrolledCourseProgress[] = [
     progressPercent: 65,
     completedLessons: 24,
     totalLessons: 38,
-    remainingHours: '4.5 hrs',
+    remainingHours: '4,5 jam',
     currentLessonId: 'les-15',
-    currentLessonTitle: '15. Deep Dive into useState, useEffect & Custom Hooks',
-    lastAccessed: '2 hours ago',
+    currentLessonTitle: '15. Mendalami useState, useEffect & Custom Hooks',
+    lastAccessed: '2 jam lalu',
     isCompleted: false,
   },
   {
@@ -81,10 +91,10 @@ const initialEnrolledCourses: EnrolledCourseProgress[] = [
     progressPercent: 42,
     completedLessons: 14,
     totalLessons: 34,
-    remainingHours: '7.0 hrs',
+    remainingHours: '7 jam',
     currentLessonId: 'les-ux-14',
-    currentLessonTitle: 'Module 3: Design Tokens & Micro-Interactions',
-    lastAccessed: 'Yesterday',
+    currentLessonTitle: 'Modul 3: Token Desain & Microinteraksi',
+    lastAccessed: 'Kemarin',
     isCompleted: false,
   },
   {
@@ -93,10 +103,10 @@ const initialEnrolledCourses: EnrolledCourseProgress[] = [
     progressPercent: 28,
     completedLessons: 8,
     totalLessons: 28,
-    remainingHours: '9.2 hrs',
+    remainingHours: '9,2 jam',
     currentLessonId: 'les-mkt-8',
-    currentLessonTitle: 'Module 2: Customer Acquisition Funnels',
-    lastAccessed: '3 days ago',
+    currentLessonTitle: 'Modul 2: Corong Akuisisi Pelanggan',
+    lastAccessed: '3 hari lalu',
     isCompleted: false,
   },
   {
@@ -105,10 +115,10 @@ const initialEnrolledCourses: EnrolledCourseProgress[] = [
     progressPercent: 100,
     completedLessons: 32,
     totalLessons: 32,
-    remainingHours: '0 hrs',
+    remainingHours: '0 jam',
     currentLessonId: 'les-py-32',
-    currentLessonTitle: 'Capstone: Production CLI Tool',
-    lastAccessed: '2 weeks ago',
+    currentLessonTitle: 'Proyek Akhir: Alat CLI Siap Produksi',
+    lastAccessed: '2 minggu lalu',
     isCompleted: true,
     certificateId: 'CERT-PY-84920',
   },
@@ -118,10 +128,10 @@ const initialEnrolledCourses: EnrolledCourseProgress[] = [
     progressPercent: 100,
     completedLessons: 42,
     totalLessons: 42,
-    remainingHours: '0 hrs',
+    remainingHours: '0 jam',
     currentLessonId: 'les-ml-42',
-    currentLessonTitle: 'Transformer Architectures',
-    lastAccessed: '1 month ago',
+    currentLessonTitle: 'Arsitektur Transformer',
+    lastAccessed: '1 bulan lalu',
     isCompleted: true,
     certificateId: 'CERT-ML-84920',
   },
@@ -131,10 +141,10 @@ const initialEnrolledCourses: EnrolledCourseProgress[] = [
     progressPercent: 100,
     completedLessons: 36,
     totalLessons: 36,
-    remainingHours: '0 hrs',
+    remainingHours: '0 jam',
     currentLessonId: 'les-cloud-36',
-    currentLessonTitle: 'Multi-Region Kubernetes',
-    lastAccessed: '2 months ago',
+    currentLessonTitle: 'Kubernetes Multi-Region',
+    lastAccessed: '2 bulan lalu',
     isCompleted: true,
     certificateId: 'CERT-CLOUD-84920',
   },

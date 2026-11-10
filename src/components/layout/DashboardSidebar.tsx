@@ -35,32 +35,32 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ isOpen, onCl
     switch (currentRole) {
       case 'instructor':
         return [
-          { label: 'Dashboard', path: '/instructor', icon: <LayoutDashboard className="w-4 h-4" /> },
-          { label: 'My Courses', path: '/instructor/courses/course-web-dev-2025', icon: <BookOpen className="w-4 h-4" /> },
-          { label: 'Create Course', path: '/instructor/courses/new', icon: <PlusCircle className="w-4 h-4 text-orange" />, badge: 'NEW', badgeColor: 'bg-orange text-white' },
-          { label: 'Students', path: '/instructor/students', icon: <Users className="w-4 h-4" /> },
-          { label: 'Quiz Results', path: '/instructor/quiz-results', icon: <Award className="w-4 h-4" /> },
-          { label: 'Notifications', path: '/instructor/notifications', icon: <Bell className="w-4 h-4" />, badge: '4', badgeColor: 'bg-orange text-white' },
-          { label: 'Profile & Settings', path: '/instructor/settings', icon: <Settings className="w-4 h-4" /> },
+          { label: 'Dasbor', path: '/instructor', icon: <LayoutDashboard className="w-4 h-4" /> },
+          { label: 'Kursus Saya', path: '/instructor/courses/course-web-dev-2025', icon: <BookOpen className="w-4 h-4" /> },
+          { label: 'Buat Kursus', path: '/instructor/courses/new', icon: <PlusCircle className="w-4 h-4 text-orange" />, badge: 'BARU', badgeColor: 'bg-orange text-white' },
+          { label: 'Peserta', path: '/instructor/students', icon: <Users className="w-4 h-4" /> },
+          { label: 'Hasil Kuis', path: '/instructor/quiz-results', icon: <Award className="w-4 h-4" /> },
+          { label: 'Notifikasi', path: '/instructor/notifications', icon: <Bell className="w-4 h-4" />, badge: '4', badgeColor: 'bg-orange text-white' },
+          { label: 'Profil & Pengaturan', path: '/instructor/settings', icon: <Settings className="w-4 h-4" /> },
         ];
       case 'admin':
         return [
-          { label: 'Dashboard', path: '/admin', icon: <LayoutDashboard className="w-4 h-4" /> },
-          { label: 'Users', path: '/admin/users', icon: <Users className="w-4 h-4" /> },
-          { label: 'Categories', path: '/admin/categories', icon: <FolderTree className="w-4 h-4" /> },
-          { label: 'Courses Review', path: '/admin/courses-review', icon: <FileCheck2 className="w-4 h-4" />, badge: '12', badgeColor: 'bg-orange text-white' },
-          { label: 'Notifications', path: '/admin/notifications', icon: <Bell className="w-4 h-4" /> },
-          { label: 'Settings', path: '/admin/settings', icon: <Settings className="w-4 h-4" /> },
+          { label: 'Dasbor', path: '/admin', icon: <LayoutDashboard className="w-4 h-4" /> },
+          { label: 'Pengguna', path: '/admin/users', icon: <Users className="w-4 h-4" /> },
+          { label: 'Kategori', path: '/admin/categories', icon: <FolderTree className="w-4 h-4" /> },
+          { label: 'Tinjauan Kursus', path: '/admin/courses-review', icon: <FileCheck2 className="w-4 h-4" />, badge: '12', badgeColor: 'bg-orange text-white' },
+          { label: 'Notifikasi', path: '/admin/notifications', icon: <Bell className="w-4 h-4" /> },
+          { label: 'Pengaturan', path: '/admin/settings', icon: <Settings className="w-4 h-4" /> },
         ];
       case 'participant':
       default:
         return [
-          { label: 'Dashboard', path: '/student', icon: <LayoutDashboard className="w-4 h-4" /> },
-          { label: 'My Courses', path: '/student/courses', icon: <BookOpen className="w-4 h-4" /> },
-          { label: 'Browse Courses', path: '/courses', icon: <Compass className="w-4 h-4" /> },
-          { label: 'Quiz Results', path: '/student/quiz-results', icon: <Award className="w-4 h-4" /> },
-          { label: 'Notifications', path: '/student/notifications', icon: <Bell className="w-4 h-4" />, badge: '3', badgeColor: 'bg-orange text-white' },
-          { label: 'Profile & Settings', path: '/student/settings', icon: <Settings className="w-4 h-4" /> },
+          { label: 'Dasbor', path: '/student', icon: <LayoutDashboard className="w-4 h-4" /> },
+          { label: 'Kursus Saya', path: '/student/courses', icon: <BookOpen className="w-4 h-4" /> },
+          { label: 'Jelajahi Kursus', path: '/courses', icon: <Compass className="w-4 h-4" /> },
+          { label: 'Hasil Kuis', path: '/student/quiz-results', icon: <Award className="w-4 h-4" /> },
+          { label: 'Notifikasi', path: '/student/notifications', icon: <Bell className="w-4 h-4" />, badge: '3', badgeColor: 'bg-orange text-white' },
+          { label: 'Profil & Pengaturan', path: '/student/settings', icon: <Settings className="w-4 h-4" /> },
         ];
     }
   };
@@ -72,9 +72,9 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ isOpen, onCl
   );
 
   const getSubLabel = () => {
-    if (role === 'instructor') return 'INSTRUCTOR HUB';
-    if (role === 'admin') return 'ADMIN HUB';
-    return 'ACADEMY LMS';
+    if (role === 'instructor') return 'PUSAT PENGAJAR';
+    if (role === 'admin') return 'PUSAT ADMIN';
+    return 'AKADEMI EDUSPACE';
   };
 
   const isActive = (itemPath: string) => {
@@ -122,7 +122,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ isOpen, onCl
                 type="button"
                 onClick={onClose}
                 className="lg:hidden text-slate-400 hover:text-white p-1"
-                aria-label="Close menu"
+                aria-label="Tutup menu"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -172,7 +172,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ isOpen, onCl
             className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-navy-dark transition-colors"
           >
             <LogOut className="w-4 h-4 text-slate-400" />
-            <span>Sign Out</span>
+            <span>Keluar</span>
           </button>
         </div>
       </aside>

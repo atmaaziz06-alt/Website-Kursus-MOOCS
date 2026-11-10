@@ -62,7 +62,7 @@ export const Chip: React.FC<ChipProps> = ({
             onRemove();
           }}
           className="ml-1 text-slate-400 hover:text-slate-700 focus:outline-none"
-          aria-label="Remove filter"
+          aria-label="Hapus filter"
         >
           ×
         </button>
@@ -70,4 +70,3 @@ export const Chip: React.FC<ChipProps> = ({
     </div>
   );
 };
-

@@ -12,15 +12,15 @@ export const PublicNavbar: React.FC = () => {
   const { isAuthenticated, role, user } = useAuth();
   const dashboardPath = role === 'instructor' ? '/instructor' : role === 'admin' ? '/admin' : '/student';
   const primaryPath = role === 'participant' ? '/student/courses' : dashboardPath;
-  const primaryLabel = role === 'participant' ? 'My Courses' : 'Dashboard';
+  const primaryLabel = role === 'participant' ? 'Kursus Saya' : 'Dasbor';
 
   const navLinks = [
-    { label: 'Home', path: '/' },
-    { label: 'Courses', path: '/courses' },
-    { label: 'How It Works', path: '/#how-it-works', targetId: 'how-it-works' },
-    { label: 'Categories', path: '/#categories', targetId: 'categories' },
-    { label: 'About Us', path: '/#about', targetId: 'about' },
-    { label: 'Contact', path: '/#contact', targetId: 'contact' },
+    { label: 'Beranda', path: '/' },
+    { label: 'Kursus', path: '/courses' },
+    { label: 'Cara Kerja', path: '/#how-it-works', targetId: 'how-it-works' },
+    { label: 'Kategori', path: '/#categories', targetId: 'categories' },
+    { label: 'Tentang Kami', path: '/#about', targetId: 'about' },
+    { label: 'Kontak', path: '/#contact', targetId: 'contact' },
   ];
 
   const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, link: typeof navLinks[0]) => {
@@ -59,7 +59,7 @@ export const PublicNavbar: React.FC = () => {
               EduSpace
             </span>
             <span className="text-[10px] uppercase font-semibold tracking-wider text-slate-400 block mt-0.5">
-              Learning for everyone
+              Belajar untuk semua
             </span>
           </div>
         </Link>
@@ -94,18 +94,18 @@ export const PublicNavbar: React.FC = () => {
             type="button"
             onClick={() => navigate('/courses')}
             className="w-10 h-10 rounded-full border border-border flex items-center justify-center text-slate-600 hover:text-navy hover:bg-slate-50 transition-colors"
-            aria-label="Search courses"
+            aria-label="Cari kursus"
           >
             <Search className="w-4 h-4" />
           </button>
 
           {isAuthenticated ? (
             <Link to={dashboardPath} className="text-sm font-bold text-navy hover:text-blue px-3 py-2">
-              {user?.name?.split(' ')[0] || 'My Account'}
+              {user?.name?.split(' ')[0] || 'Akun Saya'}
             </Link>
           ) : (
             <Link to="/login" className="text-sm font-bold text-navy hover:text-blue px-3 py-2">
-              Log In
+              Masuk
             </Link>
           )}
 
@@ -115,7 +115,7 @@ export const PublicNavbar: React.FC = () => {
             onClick={() => navigate(isAuthenticated ? primaryPath : '/courses')}
             className="shadow-sm"
           >
-            {isAuthenticated ? primaryLabel : 'Enroll Now'}
+            {isAuthenticated ? primaryLabel : 'Daftar Kursus'}
           </Button>
         </div>
 
@@ -125,7 +125,7 @@ export const PublicNavbar: React.FC = () => {
             type="button"
             onClick={() => navigate('/courses')}
             className="w-9 h-9 rounded-full border border-border flex items-center justify-center text-slate-600"
-            aria-label="Search"
+            aria-label="Cari"
           >
             <Search className="w-4 h-4" />
           </button>
@@ -133,7 +133,7 @@ export const PublicNavbar: React.FC = () => {
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="w-9 h-9 rounded-xl border border-border flex items-center justify-center text-slate-700"
-            aria-label="Toggle navigation"
+            aria-label="Buka navigasi"
           >
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
@@ -163,7 +163,7 @@ export const PublicNavbar: React.FC = () => {
                 onClick={() => setMobileMenuOpen(false)}
                 className="w-full text-center py-2 text-sm font-bold text-navy border border-border rounded-xl"
               >
-                {user?.name || 'My Account'}
+                {user?.name || 'Akun Saya'}
               </Link>
             ) : (
               <Link
@@ -171,7 +171,7 @@ export const PublicNavbar: React.FC = () => {
                 onClick={() => setMobileMenuOpen(false)}
                 className="w-full text-center py-2 text-sm font-bold text-navy border border-border rounded-xl"
               >
-                Log In
+                Masuk
               </Link>
             )}
             <Button
@@ -182,7 +182,7 @@ export const PublicNavbar: React.FC = () => {
                 navigate(isAuthenticated ? primaryPath : '/courses');
               }}
             >
-              {isAuthenticated ? primaryLabel : 'Enroll Now'}
+              {isAuthenticated ? primaryLabel : 'Daftar Kursus'}
             </Button>
           </div>
         </div>
