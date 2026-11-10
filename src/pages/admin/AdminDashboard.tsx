@@ -29,6 +29,7 @@ import {
 import { Card, StatCard, Button, Badge, Avatar } from '../../components/ui';
 import { getCourseMedia, getUserAvatar, getInstructorPhoto } from '../../config/media';
 import { translateCategory } from '../../config/locale';
+import { downloadCSV } from '../../utils/download';
 
 export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -151,8 +152,21 @@ export const AdminDashboard: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" leftIcon={<Download className="w-3.5 h-3.5" />}>
-            Unduh Log Audit (.CSV)
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => downloadCSV('ringkasan-admin.csv', [
+              ['Metrik', 'Nilai'],
+              ['Rentang waktu', timeframe],
+              ['Total pengguna', '24850'],
+              ['Total pengajar', '312'],
+              ['Total kursus', '148'],
+              ['Kursus menunggu peninjauan', '14'],
+              ...growthData.map((item) => [`Peserta ${item.month}`, String(item.students)]),
+            ])}
+            leftIcon={<Download className="w-3.5 h-3.5" />}
+          >
+            Ekspor Ringkasan (.CSV)
           </Button>
           <Button
             variant="orange"
@@ -481,18 +495,12 @@ export const AdminDashboard: React.FC = () => {
               </table>
             </div>
 
-            {/* Footer with pagination */}
+            {/* This summary only contains the four courses shown above. */}
             <div className="pt-4 border-t border-border mt-4 flex items-center justify-between text-xs text-slate-500">
-              <span>Menampilkan 1-4 dari 14 kursus</span>
-              <div className="flex items-center gap-1">
-                <button type="button" className="px-2.5 py-1 rounded-lg border border-border bg-white hover:bg-slate-50 disabled:opacity-40" disabled>
-                  Sebelumnya
-                </button>
-                <button type="button" className="px-2.5 py-1 rounded-lg bg-navy text-white font-bold">1</button>
-                <button type="button" className="px-2.5 py-1 rounded-lg border border-border bg-white hover:bg-slate-50">2</button>
-                <button type="button" className="px-2.5 py-1 rounded-lg border border-border bg-white hover:bg-slate-50">3</button>
-                <button type="button" className="px-2.5 py-1 rounded-lg border border-border bg-white hover:bg-slate-50">Berikutnya</button>
-              </div>
+              <span>Menampilkan {pendingCourses.length} kursus yang menunggu tinjauan</span>
+              <button type="button" onClick={() => navigate('/admin/courses-review')} className="font-bold text-blue hover:text-navy">
+                Buka antrean tinjauan →
+              </button>
             </div>
           </Card>
         </div>

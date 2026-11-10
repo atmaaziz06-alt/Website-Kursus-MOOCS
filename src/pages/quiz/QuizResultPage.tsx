@@ -27,6 +27,7 @@ export const QuizResultPage: React.FC = () => {
   const [submission, setSubmission] = useState<QuizSubmission | null>(null);
   const [filterTab, setFilterTab] = useState<'all' | 'correct' | 'incorrect'>('all');
   const [expandGroup5to10, setExpandGroup5to10] = useState(false);
+  const [actionMessage, setActionMessage] = useState('');
 
   useEffect(() => {
     const sub = getLatestQuizSubmission(quizId);
@@ -37,23 +38,26 @@ export const QuizResultPage: React.FC = () => {
     return <div className="p-12 text-center text-slate-500">Memuat laporan evaluasi...</div>;
   }
 
-  // Pre-determined questions status to guarantee exact mock specification:
-  // Q1 correct, Q2 incorrect, Q3 correct, Q4 incorrect, Q5-10 correct
-  const questionStatuses = [
-    { id: 1, correct: true, userChoice: 'A', correctChoice: 'A' },
-    { id: 2, correct: false, userChoice: 'A', correctChoice: 'B' },
-    { id: 3, correct: true, userChoice: 'A', correctChoice: 'A' },
-    { id: 4, correct: false, userChoice: 'C', correctChoice: 'B' },
-    { id: 5, correct: true, userChoice: 'A', correctChoice: 'A' },
-    { id: 6, correct: true, userChoice: 'A', correctChoice: 'A' },
-    { id: 7, correct: true, userChoice: 'A', correctChoice: 'A' },
-    { id: 8, correct: true, userChoice: 'A', correctChoice: 'A' },
-    { id: 9, correct: true, userChoice: 'A', correctChoice: 'A' },
-    { id: 10, correct: true, userChoice: 'A', correctChoice: 'A' },
-  ];
-
+  const questionStatuses = quiz.questions.map((question) => ({
+    id: question.id,
+    userChoice: submission.answers[question.id] ?? '',
+    correctChoice: question.correctOptionId,
+    correct: submission.answers[question.id] === question.correctOptionId,
+  }));
+  const correctCount = questionStatuses.filter((status) => status.correct).length;
+  const incorrectCount = questionStatuses.length - correctCount;
   const firstFourQuestions = quiz.questions.slice(0, 4);
   const lastSixQuestions = quiz.questions.slice(4, 10);
+  const filteredLastSix = lastSixQuestions.filter((question) => {
+    const status = questionStatuses.find((item) => item.id === question.id);
+    return filterTab === 'all' || (filterTab === 'correct' ? status?.correct : !status?.correct);
+  });
+  const correctLastSix = lastSixQuestions.filter((question) => questionStatuses.find((status) => status.id === question.id)?.correct).length;
+  const timeTaken = `${String(Math.floor(submission.timeTakenSeconds / 60)).padStart(2, '0')}:${String(submission.timeTakenSeconds % 60).padStart(2, '0')}`;
+  const submittedDate = new Intl.DateTimeFormat('id-ID', {
+    dateStyle: 'long',
+    timeStyle: 'short',
+  }).format(new Date(submission.submittedAt));
 
   return (
     <div className="min-h-screen bg-app pb-16">
@@ -95,38 +99,52 @@ export const QuizResultPage: React.FC = () => {
                 <span className="px-3 py-1 rounded-full bg-soft-blue text-blue text-[11px] font-bold uppercase tracking-wider">
                   LAPORAN EVALUASI
                 </span>
-                <span className="text-xs text-slate-400 font-semibold">• Percobaan 1 dari 3</span>
+                <span className="text-xs text-slate-400 font-semibold">• Hasil percobaan</span>
               </div>
               <h1 className="text-2xl sm:text-3xl font-extrabold text-text-heading">
                 Evaluasi Kuis & Ringkasan Performa
               </h1>
               <p className="text-xs text-slate-500 mt-1">
-                Diselesaikan pada 28 Mei 2025 • Evaluasi Standar Angkatan 2025
+                Diselesaikan pada {submittedDate} • {quiz.title}
               </p>
             </div>
 
             <div className="flex items-center gap-3">
-              <Button variant="outline" size="sm" leftIcon={<Download className="w-3.5 h-3.5" />}>
+              <Button variant="outline" size="sm" onClick={() => window.print()} leftIcon={<Download className="w-3.5 h-3.5" />}>
                 Laporan PDF
               </Button>
-              <Button variant="outline" size="sm" leftIcon={<Share2 className="w-3.5 h-3.5" />}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(window.location.href);
+                    setActionMessage('Tautan hasil kuis berhasil disalin.');
+                  } catch (error) {
+                    console.error('Gagal menyalin tautan hasil kuis', error);
+                    setActionMessage('Tautan tidak dapat disalin. Salin alamat halaman dari bilah alamat browser.');
+                  }
+                }}
+                leftIcon={<Share2 className="w-3.5 h-3.5" />}
+              >
                 Bagikan Hasil
               </Button>
             </div>
           </div>
+          {actionMessage && <p role="status" className="mb-4 text-xs font-semibold text-blue">{actionMessage}</p>}
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center pb-8 border-b border-border mb-8">
             {/* Left: Big Circular Score 80 /100 */}
             <div className="lg:col-span-4 flex flex-col items-center justify-center text-center p-6 bg-slate-50 rounded-2xl border border-border">
               <div className="w-32 h-32 rounded-full border-8 border-green flex flex-col items-center justify-center bg-white shadow-soft mb-3">
-                <span className="text-3xl font-extrabold text-text-heading leading-none">80</span>
+                <span className="text-3xl font-extrabold text-text-heading leading-none">{submission.scorePercent}</span>
                 <span className="text-xs text-slate-400 font-bold uppercase">/ 100</span>
               </div>
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1">
-                NILAI AKHIR • Akurasi 80%
+                NILAI AKHIR • Akurasi {submission.scorePercent}%
               </span>
               <span className="inline-flex items-center px-3 py-1 rounded-full bg-green-tint text-green text-xs font-bold border border-green/20">
-                KRITERIA TERPENUHI: LULUS ≥ 70%
+                {submission.passed ? 'KRITERIA TERPENUHI: LULUS' : 'BELUM LULUS'} • Batas {quiz.passingScorePercent}%
               </span>
             </div>
 
@@ -137,7 +155,7 @@ export const QuizResultPage: React.FC = () => {
                   Kerja bagus, Dian!
                 </h3>
                 <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                  Kamu menunjukkan pemahaman yang kuat tentang React 18 Hooks, pipeline rendering, dan enkapsulasi state. Nilai: <strong className="text-navy">B+ (Baik)</strong>.
+                  Hasil evaluasi React 18 Hooks berdasarkan jawaban yang kamu kirim. Nilai: <strong className="text-navy">{submission.passed ? 'Lulus' : 'Perlu Mengulang'}</strong>.
                 </p>
               </div>
 
@@ -147,32 +165,32 @@ export const QuizResultPage: React.FC = () => {
                   <span className="text-[10px] font-bold uppercase tracking-wider text-green block">
                     Benar
                   </span>
-                  <div className="text-lg font-extrabold text-green mt-0.5">8 Pertanyaan</div>
-                  <span className="text-[11px] text-green-800 font-semibold">+80 poin diperoleh</span>
+                  <div className="text-lg font-extrabold text-green mt-0.5">{correctCount} Pertanyaan</div>
+                  <span className="text-[11px] text-green-800 font-semibold">+{submission.score} poin diperoleh</span>
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-red-tint border border-red/20">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-red block">
                     Salah
                   </span>
-                  <div className="text-lg font-extrabold text-red mt-0.5">2 Pertanyaan</div>
-                  <span className="text-[11px] text-red-800 font-semibold">0 poin</span>
+                  <div className="text-lg font-extrabold text-red mt-0.5">{incorrectCount} Pertanyaan</div>
+                  <span className="text-[11px] text-red-800 font-semibold">{Math.max(0, submission.totalPoints - submission.score)} poin belum diperoleh</span>
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-slate-50 border border-border">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
                     Waktu Pengerjaan
                   </span>
-                  <div className="text-lg font-extrabold text-navy mt-0.5">12:30 / 20:00</div>
-                  <span className="text-[11px] font-bold text-orange">Efisien</span>
+                  <div className="text-lg font-extrabold text-navy mt-0.5">{timeTaken} / {quiz.timeLimitMinutes}:00</div>
+                  <span className="text-[11px] font-bold text-orange">Waktu pengerjaan</span>
                 </div>
               </div>
 
               {/* Cohort average vs passing */}
               <div className="text-xs text-slate-500 flex items-center justify-between flex-wrap gap-2 pt-2">
-                <span>Rata-rata Angkatan: <strong>74,2%</strong> • Batas Lulus: <strong>70%</strong></span>
-                <span>Diselesaikan: <strong>28 Mei, 14.42 WIB</strong></span>
-                <span>Waktu: <strong>20 Menit</strong></span>
+                <span>Batas Lulus: <strong>{quiz.passingScorePercent}%</strong></span>
+                <span>Diselesaikan: <strong>{submittedDate}</strong></span>
+                <span>Waktu Maksimal: <strong>{quiz.timeLimitMinutes} Menit</strong></span>
               </div>
             </div>
           </div>
@@ -348,7 +366,7 @@ export const QuizResultPage: React.FC = () => {
             })}
 
             {/* Questions 5-10 Summary Row (Collapsed into one expandable row) */}
-            {filterTab !== 'incorrect' && (
+            {filteredLastSix.length > 0 && (
               <Card className="overflow-hidden">
                 <button
                   type="button"
@@ -357,21 +375,21 @@ export const QuizResultPage: React.FC = () => {
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-xl bg-green-tint text-green flex items-center justify-center font-bold text-xs">
-                      ✓
+                      {correctLastSix}/{lastSixQuestions.length}
                     </div>
                     <div>
                       <h4 className="text-sm font-bold text-text-heading">
-                        Pertanyaan 5-10 (Semua Benar)
+                        Pertanyaan 5-10
                       </h4>
                       <span className="text-xs text-slate-500">
-                        Nilai: 60/60 poin • Akurasi 100% pada Konsep Lanjutan
+                        Nilai: {correctLastSix * 10}/{lastSixQuestions.length * 10} poin • Benar {correctLastSix}, salah {lastSixQuestions.length - correctLastSix}
                       </span>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-3">
                     <span className="text-xs font-semibold text-blue">
-                      {expandGroup5to10 ? 'Sembunyikan Rincian' : 'Tampilkan 6 Pertanyaan'}
+                      {expandGroup5to10 ? 'Sembunyikan Rincian' : `Tampilkan ${filteredLastSix.length} Pertanyaan`}
                     </span>
                     {expandGroup5to10 ? (
                       <ChevronUp className="w-4 h-4 text-slate-400" />
@@ -383,18 +401,27 @@ export const QuizResultPage: React.FC = () => {
 
                 {expandGroup5to10 && (
                   <div className="border-t border-border p-6 space-y-6 bg-slate-50/50">
-                    {lastSixQuestions.map((q) => (
-                      <div key={q.id} className="p-4 rounded-xl bg-white border border-border">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-bold text-slate-400">
-                            Pertanyaan {q.id}: {q.topic}
-                          </span>
-                          <span className="text-xs font-bold text-green">Benar (+10 poin)</span>
+                    {filteredLastSix.map((q) => {
+                      const status = questionStatuses.find((item) => item.id === q.id)!;
+                      const selectedAnswer = q.options.find((option) => option.id === status.userChoice);
+                      const correctAnswer = q.options.find((option) => option.id === status.correctChoice);
+                      return (
+                        <div key={q.id} className="p-4 rounded-xl bg-white border border-border">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs font-bold text-slate-400">
+                              Pertanyaan {q.id}: {q.topic}
+                            </span>
+                            <span className={`text-xs font-bold ${status.correct ? 'text-green' : 'text-red'}`}>
+                              {status.correct ? 'Benar (+10 poin)' : 'Salah (0 poin)'}
+                            </span>
+                          </div>
+                          <p className="text-xs font-semibold text-text-heading mb-2">{q.question}</p>
+                          <p className="text-xs text-slate-600 mb-2">Jawabanmu: {selectedAnswer?.text ?? 'Tidak dijawab'}</p>
+                          {!status.correct && <p className="text-xs text-green mb-2">Jawaban benar: {correctAnswer?.text}</p>}
+                          <p className="text-xs text-slate-500 italic">{q.explanation}</p>
                         </div>
-                        <p className="text-xs font-semibold text-text-heading mb-2">{q.question}</p>
-                        <p className="text-xs text-slate-500 italic">{q.explanation}</p>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </Card>

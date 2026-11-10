@@ -174,9 +174,9 @@ export const LoginPage: React.FC = () => {
               onChange={(e) => setRememberMe(e.target.checked)}
               label="Ingat saya"
             />
-            <a href="#forgot" className="text-xs font-semibold text-blue hover:underline">
+            <button type="button" onClick={() => setErrorMessage('Pemulihan kata sandi belum tersedia pada demo ini. Gunakan akun demo yang ditampilkan.')} className="text-xs font-semibold text-blue hover:underline">
               Lupa kata sandi?
-            </a>
+            </button>
           </div>
 
           <Button

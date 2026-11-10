@@ -4,6 +4,7 @@ import { Download } from 'lucide-react';
 import { Card, Button, ProgressBar, Avatar, Badge } from '../../components/ui';
 import { getUserAvatar } from '../../config/media';
 import { instructorStudents } from '../../data/instructorStudents';
+import { downloadCSV } from '../../utils/download';
 
 export const InstructorStudents: React.FC = () => {
   const navigate = useNavigate();
@@ -21,7 +22,23 @@ export const InstructorStudents: React.FC = () => {
           <h1 className="text-2xl font-extrabold text-text-heading">Daftar Peserta</h1>
           <p className="text-xs text-slate-500 mt-1">Kelola dan bimbing peserta di bootcamp aktifmu</p>
         </div>
-        <Button variant="outline" size="sm" leftIcon={<Download className="w-3.5 h-3.5" />}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => downloadCSV('daftar-peserta.csv', [
+            ['ID', 'Nama', 'Email', 'Kursus', 'Progres', 'Nilai Rata-rata', 'Status'],
+            ...filteredStudents.map((student) => [
+              student.id,
+              student.name,
+              student.email,
+              student.track,
+              `${student.progress}%`,
+              `${student.score}%`,
+              student.status,
+            ]),
+          ])}
+          leftIcon={<Download className="w-3.5 h-3.5" />}
+        >
           Ekspor Daftar Peserta (.CSV)
         </Button>
       </div>

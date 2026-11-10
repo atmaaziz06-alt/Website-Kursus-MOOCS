@@ -1,6 +1,8 @@
-import React from 'react';
-import { Award, Download, CheckCircle2, AlertTriangle, ArrowRight } from 'lucide-react';
+import React, { useState } from 'react';
+import { Award, Download, X } from 'lucide-react';
 import { Card, Button, Badge, ProgressBar } from '../../components/ui';
+import { instructorStudents } from '../../data/instructorStudents';
+import { downloadCSV } from '../../utils/download';
 
 export const InstructorQuizResults: React.FC = () => {
   const quizAnalytics = [
@@ -33,6 +35,7 @@ export const InstructorQuizResults: React.FC = () => {
       isDraft: true,
     },
   ];
+  const [selectedQuiz, setSelectedQuiz] = useState<(typeof quizAnalytics)[number] | null>(null);
 
   return (
     <div className="max-w-[1200px] mx-auto space-y-6">
@@ -41,7 +44,20 @@ export const InstructorQuizResults: React.FC = () => {
           <h1 className="text-2xl font-extrabold text-text-heading">Evaluasi & Penilaian Kuis</h1>
           <p className="text-xs text-slate-500 mt-1">Tinjau statistik kuis, batas kelulusan, dan daftar nilai peserta</p>
         </div>
-        <Button variant="outline" size="sm" leftIcon={<Download className="w-3.5 h-3.5" />}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => downloadCSV('daftar-nilai-peserta.csv', [
+            ['ID', 'Nama Peserta', 'Progres Kursus', 'Nilai Rata-rata'],
+            ...instructorStudents.map((student) => [
+              student.id,
+              student.name,
+              `${student.progress}%`,
+              `${student.score.toFixed(1)}%`,
+            ]),
+          ])}
+          leftIcon={<Download className="w-3.5 h-3.5" />}
+        >
           Ekspor Daftar Nilai (.CSV)
         </Button>
       </div>
@@ -81,13 +97,93 @@ export const InstructorQuizResults: React.FC = () => {
                   : `Total jawaban terverifikasi: ${quiz.submissions.toLocaleString()} peserta`}
               </span>
 
-              <Button variant="navy" size="sm">
+              <Button
+                variant="navy"
+                size="sm"
+                disabled={Boolean(quiz.isDraft)}
+                onClick={() => setSelectedQuiz(quiz)}
+              >
                 Lihat Rincian Jawaban →
               </Button>
             </div>
           </Card>
         ))}
       </div>
+
+      {selectedQuiz && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-navy/50 p-4"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setSelectedQuiz(null);
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="quiz-submissions-title"
+            className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-soft-lg"
+          >
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h2 id="quiz-submissions-title" className="text-lg font-bold text-text-heading">
+                  Rincian Jawaban Peserta
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">{selectedQuiz.title}</p>
+              </div>
+              <button
+                type="button"
+                aria-label="Tutup rincian jawaban"
+                onClick={() => setSelectedQuiz(null)}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-navy"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <div className="rounded-xl bg-slate-50 p-3">
+                <span className="block text-xs text-slate-500">Pengumpulan</span>
+                <strong className="text-lg text-navy">{selectedQuiz.submissions.toLocaleString()}</strong>
+              </div>
+              <div className="rounded-xl bg-slate-50 p-3">
+                <span className="block text-xs text-slate-500">Rata-rata nilai</span>
+                <strong className="text-lg text-navy">{selectedQuiz.avgScore}%</strong>
+              </div>
+              <div className="rounded-xl bg-slate-50 p-3">
+                <span className="block text-xs text-slate-500">Tingkat kelulusan</span>
+                <strong className="text-lg text-green">{selectedQuiz.passRate}%</strong>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-border text-xs uppercase text-slate-400">
+                    <th className="pb-3">Peserta</th>
+                    <th className="pb-3">Progres Kursus</th>
+                    <th className="pb-3 text-right">Nilai Rata-rata</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/60">
+                  {instructorStudents.map((student) => (
+                    <tr key={student.id}>
+                      <td className="py-3 font-semibold text-text-heading">{student.name}</td>
+                      <td className="py-3">
+                        <div className="flex items-center gap-2">
+                          <ProgressBar progress={student.progress} size="xs" color={student.progress === 100 ? 'green' : 'blue'} />
+                          <span className="text-xs text-slate-500">{student.progress}%</span>
+                        </div>
+                      </td>
+                      <td className="py-3 text-right font-bold text-navy">{student.score.toFixed(1)}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-5 flex justify-end">
+              <Button variant="outline" onClick={() => setSelectedQuiz(null)}>Tutup</Button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 };

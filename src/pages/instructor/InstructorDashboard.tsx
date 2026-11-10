@@ -25,6 +25,7 @@ import { Card, StatCard, Button } from '../../components/ui';
 import { useCourses } from '../../context/CourseContext';
 import { formatIDR } from '../../config/currency';
 import { translateCategory, translateLevel } from '../../config/locale';
+import { downloadCSV } from '../../utils/download';
 
 export const InstructorDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -62,7 +63,23 @@ export const InstructorDashboard: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" leftIcon={<Download className="w-3.5 h-3.5" />}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => downloadCSV('kursus-pengajar.csv', [
+              ['ID', 'Judul Kursus', 'Kategori', 'Tingkat', 'Durasi', 'Harga', 'Status'],
+              ...instructorCourses.map((course) => [
+                course.id,
+                course.title,
+                translateCategory(course.category),
+                translateLevel(course.level),
+                course.duration,
+                formatIDR(course.price),
+                course.status,
+              ]),
+            ])}
+            leftIcon={<Download className="w-3.5 h-3.5" />}
+          >
             Ekspor CSV
           </Button>
           <Button

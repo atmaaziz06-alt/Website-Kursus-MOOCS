@@ -24,13 +24,39 @@ import { useCourses } from '../../context/CourseContext';
 import { media, getCourseMedia, getInstructorPhoto } from '../../config/media';
 import { mockCourses } from '../../data/mockData';
 import { translateCategory } from '../../config/locale';
+import { useNotifications } from '../../context/NotificationContext';
+import { downloadPrintableCertificate } from '../../utils/download';
 
 export const StudentDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { enrolledCourses, isDevEmptyState, toggleDevEmptyState } = useCourses();
+  const { notifications, isRead, markAsRead } = useNotifications();
 
   const [courseFilter, setCourseFilter] = useState<'all' | 'in-progress' | 'completed'>('all');
+  const [bookmarkedCourses, setBookmarkedCourses] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('eduspace_saved_courses') ?? '[]') as string[];
+    } catch (error) {
+      console.error('Gagal membaca kursus tersimpan', error);
+      return [];
+    }
+  });
+  const [showAssignmentDetails, setShowAssignmentDetails] = useState(false);
+
+  const toggleBookmark = (courseSlug: string) => {
+    setBookmarkedCourses((current) => {
+      const updated = current.includes(courseSlug)
+        ? current.filter((slug) => slug !== courseSlug)
+        : [...current, courseSlug];
+      try {
+        localStorage.setItem('eduspace_saved_courses', JSON.stringify(updated));
+      } catch (error) {
+        console.error('Gagal menyimpan kursus tersimpan', error);
+      }
+      return updated;
+    });
+  };
 
   const inProgressCourses = enrolledCourses.filter((c) => !c.isCompleted);
   const completedCourses = enrolledCourses.filter((c) => c.isCompleted);
@@ -268,10 +294,11 @@ export const StudentDashboard: React.FC = () => {
                             </div>
                             <button
                               type="button"
-                              className="text-slate-400 hover:text-orange"
-                              aria-label="Simpan kursus"
+                              onClick={() => toggleBookmark(item.courseSlug)}
+                              className={bookmarkedCourses.includes(item.courseSlug) ? 'text-orange' : 'text-slate-400 hover:text-orange'}
+                              aria-label={bookmarkedCourses.includes(item.courseSlug) ? 'Hapus kursus tersimpan' : 'Simpan kursus'}
                             >
-                              <Bookmark className="w-4 h-4" />
+                              <Bookmark className={`w-4 h-4 ${bookmarkedCourses.includes(item.courseSlug) ? 'fill-orange' : ''}`} />
                             </button>
                           </div>
 
@@ -319,6 +346,7 @@ export const StudentDashboard: React.FC = () => {
                               <Button
                                 variant="navy"
                                 size="sm"
+                                onClick={() => downloadPrintableCertificate(user?.name || 'Peserta EduSpace', courseDetail?.title || item.courseSlug)}
                                 leftIcon={<Download className="w-3.5 h-3.5" />}
                               >
                                 Unduh Sertifikat
@@ -379,9 +407,14 @@ export const StudentDashboard: React.FC = () => {
                     <h4 className="text-xs font-bold text-text-heading mb-2">
                       Proyek Akhir REST API Blog Full-Stack
                     </h4>
-                    <Button variant="outline" size="sm" fullWidth>
-                      Rincian
+                    <Button variant="outline" size="sm" fullWidth onClick={() => setShowAssignmentDetails((open) => !open)}>
+                      {showAssignmentDetails ? 'Tutup Rincian' : 'Rincian'}
                     </Button>
+                    {showAssignmentDetails && (
+                      <p className="mt-3 rounded-lg bg-white p-3 text-xs leading-relaxed text-slate-600">
+                        Buat REST API blog dengan operasi CRUD, validasi input, dan dokumentasi endpoint. Pengumpulan tugas belum tersedia pada versi demo ini.
+                      </p>
+                    )}
                   </div>
                 </div>
               </Card>
@@ -393,35 +426,26 @@ export const StudentDashboard: React.FC = () => {
                   <Bell className="w-4 h-4 text-slate-400" />
                 </div>
                 <div className="space-y-3">
-                  <div className="flex items-start gap-3 text-xs">
-                    <span className="w-2 h-2 rounded-full bg-blue shrink-0 mt-1.5" />
-                    <div className="flex-1">
-                      <div className="font-bold text-text-heading">Solusi Kode Modul 4 Telah Terbit</div>
-                      <div className="text-slate-400 text-[11px] mt-0.5">2 jam lalu</div>
-                    </div>
-                    <button type="button" className="text-[11px] font-semibold text-blue hover:underline">
-                      Tandai dibaca
-                    </button>
-                  </div>
-
-                  <div className="flex items-start gap-3 text-xs">
-                    <span className="w-2 h-2 rounded-full bg-blue shrink-0 mt-1.5" />
-                    <div className="flex-1">
-                      <div className="font-bold text-text-heading">Tautan Sesi Tanya Jawab Aktif</div>
-                      <div className="text-slate-400 text-[11px] mt-0.5">5 jam lalu</div>
-                    </div>
-                    <button type="button" className="text-[11px] font-semibold text-blue hover:underline">
-                      Tandai dibaca
-                    </button>
-                  </div>
-
-                  <div className="flex items-start gap-3 text-xs opacity-70">
-                    <span className="w-2 h-2 rounded-full bg-slate-300 shrink-0 mt-1.5" />
-                    <div className="flex-1">
-                      <div className="font-bold text-slate-600">Kuis 03 Dinilai (Lulus 95%)</div>
-                      <div className="text-slate-400 text-[11px] mt-0.5">Kemarin</div>
-                    </div>
-                  </div>
+                  {notifications.slice(0, 3).map((notification) => {
+                    const read = isRead(notification.id);
+                    return (
+                      <div key={notification.id} className={`flex items-start gap-3 text-xs ${read ? 'opacity-70' : ''}`}>
+                        <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${read ? 'bg-slate-300' : 'bg-blue'}`} />
+                        <div className="flex-1">
+                          <div className={`font-bold ${read ? 'text-slate-600' : 'text-text-heading'}`}>{notification.title}</div>
+                          <div className="mt-0.5 text-[11px] text-slate-400">{notification.time}</div>
+                        </div>
+                        {!read && (
+                          <button type="button" onClick={() => markAsRead(notification.id)} className="text-[11px] font-semibold text-blue hover:underline">
+                            Tandai dibaca
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                  <button type="button" onClick={() => navigate('/student/notifications')} className="text-xs font-bold text-blue hover:underline">
+                    Lihat semua notifikasi →
+                  </button>
                 </div>
               </Card>
 

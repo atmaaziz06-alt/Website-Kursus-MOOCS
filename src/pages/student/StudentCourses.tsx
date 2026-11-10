@@ -5,11 +5,14 @@ import { Card, Button, ProgressBar, Badge, Avatar } from '../../components/ui';
 import { useCourses } from '../../context/CourseContext';
 import { mockCourses } from '../../data/mockData';
 import { getCourseMedia, getInstructorPhoto } from '../../config/media';
+import { downloadPrintableCertificate } from '../../utils/download';
+import { useAuth } from '../../context/AuthContext';
 
 export const StudentCourses: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { enrolledCourses } = useCourses();
+  const { user } = useAuth();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
 
@@ -24,6 +27,8 @@ export const StudentCourses: React.FC = () => {
     return true;
   });
   const enrolledCourseTitle = (location.state as { enrolledCourse?: string } | null)?.enrolledCourse;
+  const activeCount = enrolledCourses.filter((course) => !course.isCompleted).length;
+  const completedCount = enrolledCourses.filter((course) => course.isCompleted).length;
 
   return (
     <div className="max-w-[1200px] mx-auto space-y-6">
@@ -65,7 +70,7 @@ export const StudentCourses: React.FC = () => {
               filter === 'active' ? 'bg-white text-navy shadow-sm' : 'text-slate-600'
             }`}
           >
-            Berlangsung (3)
+            Berlangsung ({activeCount})
           </button>
           <button
             type="button"
@@ -74,7 +79,7 @@ export const StudentCourses: React.FC = () => {
               filter === 'completed' ? 'bg-white text-navy shadow-sm' : 'text-slate-600'
             }`}
           >
-            Selesai (3)
+            Selesai ({completedCount})
           </button>
         </div>
 
@@ -147,9 +152,10 @@ export const StudentCourses: React.FC = () => {
                       variant="outline"
                       size="sm"
                       fullWidth
+                      onClick={() => downloadPrintableCertificate(user?.name || 'Peserta EduSpace', course?.title || item.courseSlug)}
                       leftIcon={<Download className="w-3.5 h-3.5 text-blue" />}
                     >
-                      Sertifikat (.PDF)
+                      Unduh Sertifikat
                     </Button>
                   ) : (
                     <Button
@@ -168,6 +174,11 @@ export const StudentCourses: React.FC = () => {
           );
         })}
       </div>
+      {filtered.length === 0 && (
+        <p className="rounded-xl border border-border bg-white py-10 text-center text-sm text-slate-500">
+          {search ? 'Tidak ada kursus yang cocok dengan pencarianmu.' : 'Belum ada kursus pada kategori ini.'}
+        </p>
+      )}
     </div>
   );
 };

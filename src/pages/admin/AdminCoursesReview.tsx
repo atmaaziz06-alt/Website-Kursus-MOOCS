@@ -1,10 +1,11 @@
-import React from 'react';
-import { FileCheck2, Check, X, Eye, Download } from 'lucide-react';
+import React, { useState } from 'react';
+import { FileCheck2, Check, X, Eye } from 'lucide-react';
 import { Card, Button, Badge, Avatar } from '../../components/ui';
 import { getCourseMedia, getInstructorPhoto } from '../../config/media';
+import { translateCategory } from '../../config/locale';
 
 export const AdminCoursesReview: React.FC = () => {
-  const reviews = [
+  const [reviews, setReviews] = useState([
     {
       id: 'rev-1',
       title: 'Next.js 15 Full-Stack & Agen AI',
@@ -53,7 +54,19 @@ export const AdminCoursesReview: React.FC = () => {
       duration: '24 jam',
       status: 'In Review',
     },
-  ];
+  ]);
+  const [selectedReview, setSelectedReview] = useState<(typeof reviews)[number] | null>(null);
+  const [feedback, setFeedback] = useState('');
+
+  const decideReview = (reviewId: string, decision: 'approved' | 'rejected') => {
+    const review = reviews.find((item) => item.id === reviewId);
+    if (!review) return;
+    setReviews((current) => current.filter((item) => item.id !== reviewId));
+    setFeedback(decision === 'approved'
+      ? `Kursus "${review.title}" disetujui dan diterbitkan.`
+      : `Kursus "${review.title}" ditolak dan dikembalikan kepada pengajar.`);
+    setSelectedReview(null);
+  };
 
   return (
     <div className="max-w-[1200px] mx-auto space-y-6">
@@ -64,7 +77,17 @@ export const AdminCoursesReview: React.FC = () => {
         </div>
       </div>
 
+      {feedback && (
+        <div role="status" className="flex items-center justify-between gap-3 rounded-xl border border-green/20 bg-green-tint/50 px-4 py-3 text-sm text-green">
+          <span>{feedback}</span>
+          <button type="button" aria-label="Tutup pemberitahuan" onClick={() => setFeedback('')}><X className="h-4 w-4" /></button>
+        </div>
+      )}
+
       <div className="space-y-4">
+        {reviews.length === 0 && (
+          <Card className="p-8 text-center text-sm text-slate-500">Tidak ada kursus yang menunggu pemeriksaan.</Card>
+        )}
         {reviews.map((r) => {
           const cMedia = getCourseMedia(r.slug);
           const instPhoto = getInstructorPhoto(r.instructorId);
@@ -95,17 +118,47 @@ export const AdminCoursesReview: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-2.5 self-end lg:self-center">
-                <Button variant="outline" size="sm" leftIcon={<Eye className="w-3.5 h-3.5" />}>
+                <Button variant="outline" size="sm" onClick={() => setSelectedReview(r)} leftIcon={<Eye className="w-3.5 h-3.5" />}>
                   Periksa Silabus
                 </Button>
-                <Button variant="orange" size="sm" leftIcon={<Check className="w-3.5 h-3.5" />}>
+                <Button variant="orange" size="sm" onClick={() => decideReview(r.id, 'approved')} leftIcon={<Check className="w-3.5 h-3.5" />}>
                   Setujui & Terbitkan
+                </Button>
+                <Button variant="danger" size="sm" aria-label={`Tolak ${r.title}`} onClick={() => decideReview(r.id, 'rejected')}>
+                  Tolak
                 </Button>
               </div>
             </Card>
           );
         })}
       </div>
+      {selectedReview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/50 p-4" onMouseDown={(event) => {
+          if (event.target === event.currentTarget) setSelectedReview(null);
+        }}>
+          <section role="dialog" aria-modal="true" aria-labelledby="review-dialog-title" className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-soft-lg">
+            <div className="mb-5 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-blue">Pemeriksaan kursus</p>
+                <h2 id="review-dialog-title" className="mt-1 text-lg font-bold text-text-heading">{selectedReview.title}</h2>
+              </div>
+              <button type="button" aria-label="Tutup rincian" onClick={() => setSelectedReview(null)}><X className="h-5 w-5 text-slate-400" /></button>
+            </div>
+            <dl className="grid gap-3 text-sm sm:grid-cols-2">
+              <div><dt className="text-xs text-slate-500">Pengajar</dt><dd className="font-semibold">{selectedReview.instructor}</dd></div>
+              <div><dt className="text-xs text-slate-500">Kategori</dt><dd className="font-semibold">{translateCategory(selectedReview.category)}</dd></div>
+              <div><dt className="text-xs text-slate-500">Jumlah pelajaran</dt><dd className="font-semibold">{selectedReview.lessonsCount}</dd></div>
+              <div><dt className="text-xs text-slate-500">Durasi</dt><dd className="font-semibold">{selectedReview.duration}</dd></div>
+              <div><dt className="text-xs text-slate-500">Tanggal pengajuan</dt><dd className="font-semibold">{selectedReview.submittedDate}</dd></div>
+              <div><dt className="text-xs text-slate-500">Status</dt><dd className="font-semibold">{selectedReview.status === 'Pending QA' ? 'Menunggu Pemeriksaan' : 'Sedang Ditinjau'}</dd></div>
+            </dl>
+            <div className="mt-6 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setSelectedReview(null)}>Tutup</Button>
+              <Button variant="orange" onClick={() => decideReview(selectedReview.id, 'approved')} leftIcon={<Check className="h-4 w-4" />}>Setujui & Terbitkan</Button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 };

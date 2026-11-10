@@ -34,15 +34,65 @@ export const LessonLearnPage: React.FC = () => {
   const [completedCount, setCompletedCount] = useState(15);
   const [expandedSection, setExpandedSection] = useState<string>('sec-4');
   const [searchQuery, setSearchQuery] = useState('');
+  const [notice, setNotice] = useState('');
+  const [isBookmarked, setIsBookmarked] = useState(() => localStorage.getItem(`eduspace_bookmark_${courseSlug}_${lessonId}`) === 'true');
+  const [lessonNote, setLessonNote] = useState(() => localStorage.getItem(`eduspace_note_${courseSlug}_${lessonId}`) ?? '');
+  const [sandboxDraft, setSandboxDraft] = useState(() => localStorage.getItem(`eduspace_sandbox_${courseSlug}_${lessonId}`) ?? 'const [count, setCount] = useState(0);\n\nuseEffect(() => {\n  document.title = `Count: ${count}`;\n}, [count]);');
 
   const instructorPhoto = getInstructorPhoto('marcus-vance');
   const userAvatar = getUserAvatar('dian-paramitha');
   const courseMedia = getCourseMedia(courseSlug);
 
   const handleMarkCompleted = () => {
+    if (isCompleted) return;
     setIsCompleted(true);
-    setCompletedCount(16);
+    setCompletedCount((count) => Math.max(count, 16));
     markLessonCompleted(courseSlug, lessonId);
+  };
+
+  const downloadTextFile = (filename: string, content: string) => {
+    const url = URL.createObjectURL(new Blob([content], { type: 'text/plain;charset=utf-8' }));
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  const handleBookmark = () => {
+    try {
+      const nextState = !isBookmarked;
+      localStorage.setItem(`eduspace_bookmark_${courseSlug}_${lessonId}`, String(nextState));
+      setIsBookmarked(nextState);
+      setNotice(nextState ? 'Pelajaran ditambahkan ke daftar simpan.' : 'Pelajaran dihapus dari daftar simpan.');
+    } catch (error) {
+      console.error('Gagal menyimpan status pelajaran', error);
+      setNotice('Tidak dapat menyimpan pelajaran di perangkat ini.');
+    }
+  };
+
+  const handleAskQuestion = () => {
+    const question = window.prompt('Apa yang ingin kamu tanyakan tentang pelajaran ini?');
+    if (!question?.trim()) return;
+    try {
+      const key = `eduspace_lesson_questions_${courseSlug}_${lessonId}`;
+      const saved = JSON.parse(localStorage.getItem(key) ?? '[]') as string[];
+      localStorage.setItem(key, JSON.stringify([...saved, question.trim()]));
+      setNotice('Pertanyaan tersimpan di perangkat ini untuk dibahas nanti.');
+    } catch (error) {
+      console.error('Gagal menyimpan pertanyaan pelajaran', error);
+      setNotice('Pertanyaan tidak dapat disimpan di perangkat ini.');
+    }
+  };
+
+  const saveLessonNote = () => {
+    try {
+      localStorage.setItem(`eduspace_note_${courseSlug}_${lessonId}`, lessonNote);
+      setNotice('Catatan pelajaran berhasil disimpan.');
+    } catch (error) {
+      console.error('Gagal menyimpan catatan pelajaran', error);
+      setNotice('Catatan tidak dapat disimpan di perangkat ini.');
+    }
   };
 
   const sections = [
@@ -101,6 +151,14 @@ export const LessonLearnPage: React.FC = () => {
     },
   ];
 
+  const visibleSections = searchQuery.trim()
+    ? sections.map((section) => ({
+      ...section,
+      lessons: section.lessons.filter((lesson) =>
+        `${section.title} ${lesson.title}`.toLowerCase().includes(searchQuery.trim().toLowerCase())),
+    })).filter((section) => section.title.toLowerCase().includes(searchQuery.trim().toLowerCase()) || section.lessons.length > 0)
+    : sections;
+
   return (
     <div className="min-h-screen bg-app flex flex-col">
       {/* 1. TOP BAR */}
@@ -139,7 +197,7 @@ export const LessonLearnPage: React.FC = () => {
         {/* Right: Resources, comments, bell, user */}
         <div className="flex items-center gap-3 sm:gap-4 shrink-0">
           <a
-            href="#resources"
+            href="#lesson-assets"
             className="text-xs font-bold text-slate-600 hover:text-navy hidden sm:inline-block"
           >
             Sumber Belajar
@@ -147,6 +205,7 @@ export const LessonLearnPage: React.FC = () => {
 
           <button
             type="button"
+            onClick={handleAskQuestion}
             className="w-9 h-9 rounded-xl border border-border flex items-center justify-center text-slate-600 hover:text-navy"
             aria-label="Diskusi"
           >
@@ -155,6 +214,7 @@ export const LessonLearnPage: React.FC = () => {
 
           <button
             type="button"
+            onClick={() => navigate('/student/notifications')}
             className="w-9 h-9 rounded-xl border border-border flex items-center justify-center text-slate-600 hover:text-navy"
             aria-label="Notifikasi"
           >
@@ -221,7 +281,7 @@ export const LessonLearnPage: React.FC = () => {
 
           {/* Use the course-specific video instead of a generic demo clip. */}
           <div className="relative rounded-2xl overflow-hidden bg-black shadow-soft-lg aspect-[16/9]">
-            {courseMedia.previewVideoId ? (
+            {activeTab === 'video' && courseMedia.previewVideoId ? (
               <iframe
                 src={`https://www.youtube-nocookie.com/embed/${courseMedia.previewVideoId}?rel=0`}
                 title={courseMedia.previewVideoTitle || `${courseSlug} lesson video`}
@@ -229,9 +289,52 @@ export const LessonLearnPage: React.FC = () => {
                 allowFullScreen
                 className="absolute inset-0 h-full w-full border-0"
               />
-            ) : (
+            ) : activeTab === 'video' ? (
               <div className="absolute inset-0 flex items-center justify-center bg-navy p-6 text-center text-sm font-semibold text-white">
                 Video pembelajaran untuk kursus ini belum tersedia.
+              </div>
+            ) : activeTab === 'notes' ? (
+              <div className="absolute inset-0 flex flex-col gap-3 bg-white p-5 sm:p-7">
+                <h2 className="text-sm font-bold text-text-heading">Catatan pelajaran pribadi</h2>
+                <textarea
+                  aria-label="Catatan pelajaran"
+                  value={lessonNote}
+                  onChange={(event) => setLessonNote(event.target.value)}
+                  placeholder="Tulis ringkasan atau pertanyaanmu di sini..."
+                  className="min-h-0 flex-1 resize-none rounded-xl border border-border bg-slate-50 p-3 text-sm text-slate-700 focus:border-blue focus:outline-none"
+                />
+                <Button variant="navy" size="sm" onClick={saveLessonNote}>Simpan Catatan</Button>
+              </div>
+            ) : (
+              <div className="absolute inset-0 flex flex-col gap-3 bg-slate-950 p-4 sm:p-6">
+                <div className="flex items-center justify-between text-xs font-bold text-white">
+                  <span>Editor JavaScript lokal</span>
+                  <button type="button" className="text-blue-300 hover:text-white" onClick={() => setSandboxDraft('')}>Kosongkan</button>
+                </div>
+                <textarea
+                  aria-label="Kode JavaScript"
+                  value={sandboxDraft}
+                  onChange={(event) => setSandboxDraft(event.target.value)}
+                  spellCheck={false}
+                  className="min-h-0 flex-1 resize-none rounded-xl border border-slate-700 bg-slate-900 p-3 font-mono text-xs leading-relaxed text-emerald-300 focus:border-blue focus:outline-none"
+                />
+                <p className="text-[11px] text-slate-300">Editor ini menyimpan draf lokal; eksekusi kode belum tersedia.</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="bg-white text-navy"
+                  onClick={() => {
+                    try {
+                      localStorage.setItem(`eduspace_sandbox_${courseSlug}_${lessonId}`, sandboxDraft);
+                      setNotice('Draf kode berhasil disimpan di perangkat ini.');
+                    } catch (error) {
+                      console.error('Gagal menyimpan draf kode', error);
+                      setNotice('Draf kode tidak dapat disimpan di perangkat ini.');
+                    }
+                  }}
+                >
+                  Simpan Draf
+                </Button>
               </div>
             )}
           </div>
@@ -248,26 +351,29 @@ export const LessonLearnPage: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
-              <Button variant="outline" size="sm" leftIcon={<Bookmark className="w-3.5 h-3.5" />}>
-                Simpan
+              <Button variant="outline" size="sm" onClick={handleBookmark} leftIcon={<Bookmark className="w-3.5 h-3.5" />}>
+                {isBookmarked ? 'Tersimpan' : 'Simpan'}
               </Button>
-              <Button variant="outline" size="sm" leftIcon={<HelpCircle className="w-3.5 h-3.5" />}>
-                Ajukan Pertanyaan (18)
+              <Button variant="outline" size="sm" onClick={handleAskQuestion} leftIcon={<HelpCircle className="w-3.5 h-3.5" />}>
+                Ajukan Pertanyaan
               </Button>
               <Button
                 variant="navy"
                 size="sm"
+                onClick={() => downloadTextFile('pelajaran-15-react-hooks.js', sandboxDraft)}
                 leftIcon={<Download className="w-3.5 h-3.5" />}
               >
-                Unduh Kode (.zip)
+                Unduh Draf Kode
               </Button>
             </div>
           </div>
+          {notice && <p role="status" className="text-xs font-semibold text-blue">{notice}</p>}
 
           {/* FLOATING WHITE ACTION BAR */}
           <Card className="p-4 bg-white border border-border shadow-soft flex flex-col sm:flex-row items-center justify-between gap-3">
             <button
               type="button"
+              onClick={() => navigate(`/learn/${courseSlug}/les-14`)}
               className="text-xs font-bold text-slate-600 hover:text-navy transition-colors"
             >
               ← Sebelumnya: 14. Siklus Hidup Komponen
@@ -377,43 +483,45 @@ export const LessonLearnPage: React.FC = () => {
             </div>
 
             {/* Lesson Assets & Code Snippets */}
-            <div className="pt-6 border-t border-border">
+            <div id="lesson-assets" className="pt-6 border-t border-border">
               <h3 className="text-base font-bold text-text-heading mb-3">
                 Aset Pelajaran & Cuplikan Kode
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <a
-                  href="#download-code"
-                  className="p-3 rounded-xl border border-border flex items-center gap-3 hover:border-blue transition-colors group"
+                <button
+                  type="button"
+                  onClick={() => downloadTextFile('pelajaran-15-react-hooks.js', sandboxDraft)}
+                  className="w-full text-left p-3 rounded-xl border border-border flex items-center gap-3 hover:border-blue transition-colors group"
                 >
                   <div className="w-9 h-9 rounded-lg bg-soft-blue flex items-center justify-center text-blue shrink-0">
                     <Code2 className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
                     <span className="text-xs font-bold text-text-heading block truncate group-hover:text-blue">
-                      Lesson-15-Code-Snippet.js
+                      Pelajaran-15-Code-Snippet.js
                     </span>
-                    <span className="text-[10px] text-slate-400">42 KB • JavaScript</span>
+                    <span className="text-[10px] text-slate-400">JavaScript • cuplikan awal</span>
                   </div>
-                </a>
+                </button>
 
-                <a
-                  href="#download-pdf"
-                  className="p-3 rounded-xl border border-border flex items-center gap-3 hover:border-blue transition-colors group"
+                <button
+                  type="button"
+                  onClick={() => downloadTextFile('ringkasan-react-hooks.txt', 'Ringkasan React Hooks\n\nuseState menyimpan state komponen.\nuseEffect menjalankan efek samping setelah render.\nGunakan fungsi cleanup untuk melepas listener atau langganan.')}
+                  className="w-full text-left p-3 rounded-xl border border-border flex items-center gap-3 hover:border-blue transition-colors group"
                 >
                   <div className="w-9 h-9 rounded-lg bg-orange-tint flex items-center justify-center text-orange shrink-0">
                     <FileText className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
                     <span className="text-xs font-bold text-text-heading block truncate group-hover:text-blue">
-                      React-Hooks-Cheatsheet.pdf
+                      Ringkasan-React-Hooks.txt
                     </span>
-                    <span className="text-[10px] text-slate-400">1,2 MB • Panduan PDF</span>
+                    <span className="text-[10px] text-slate-400">Catatan ringkas • teks</span>
                   </div>
-                </a>
+                </button>
 
                 <a
-                  href="https://github.com"
+                  href="https://github.com/search?q=react+hooks&type=repositories"
                   target="_blank"
                   rel="noreferrer"
                   className="p-3 rounded-xl border border-border flex items-center gap-3 hover:border-blue transition-colors group"
@@ -425,7 +533,7 @@ export const LessonLearnPage: React.FC = () => {
                     <span className="text-xs font-bold text-text-heading block truncate group-hover:text-blue">
                       Cabang Repositori GitHub
                     </span>
-                    <span className="text-[10px] text-slate-400">branch: module-04-react</span>
+                    <span className="text-[10px] text-slate-400">Cari repositori React Hooks</span>
                   </div>
                 </a>
               </div>
@@ -467,7 +575,7 @@ export const LessonLearnPage: React.FC = () => {
 
             {/* Collapsible Sections List */}
             <div className="space-y-3 max-h-[460px] overflow-y-auto pr-1">
-              {sections.map((sec) => {
+              {visibleSections.map((sec) => {
                 const isSecExpanded = expandedSection === sec.id;
                 const isCompletedSec = sec.status === 'completed';
                 const isLockedSec = sec.status === 'locked';
@@ -510,7 +618,21 @@ export const LessonLearnPage: React.FC = () => {
                         {sec.lessons.map((les) => (
                           <div
                             key={les.id}
-                            onClick={() => les.type === 'quiz' ? navigate('/quiz/quiz-react-hooks') : null}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => {
+                              if (les.type === 'quiz') navigate('/quiz/quiz-react-hooks');
+                              else if (les.type === 'video') navigate(`/learn/${courseSlug}/${les.id}`);
+                              else setNotice('Bahan PDF untuk pelajaran ini belum tersedia.');
+                            }}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault();
+                                if (les.type === 'quiz') navigate('/quiz/quiz-react-hooks');
+                                else if (les.type === 'video') navigate(`/learn/${courseSlug}/${les.id}`);
+                                else setNotice('Bahan PDF untuk pelajaran ini belum tersedia.');
+                              }
+                            }}
                             className={`p-3 flex items-center justify-between text-xs cursor-pointer transition-colors ${
                               les.current
                                 ? 'bg-soft-blue/70 border-l-4 border-l-blue font-bold text-navy'
@@ -573,9 +695,10 @@ export const LessonLearnPage: React.FC = () => {
               variant="outline"
               size="sm"
               fullWidth
+              onClick={handleAskQuestion}
               className="bg-white text-navy hover:bg-slate-100 border-none font-bold"
             >
-              Join Live Mentor Room
+              Ajukan Pertanyaan ke Mentor
             </Button>
           </div>
         </div>

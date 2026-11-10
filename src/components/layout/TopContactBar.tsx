@@ -1,6 +1,5 @@
 import React from 'react';
 import { Mail, Phone } from 'lucide-react';
-import { FacebookIcon, TwitterIcon, InstagramIcon, LinkedinIcon } from '../ui/SocialIcons';
 
 export const TopContactBar: React.FC = () => {
   return (
@@ -25,40 +24,7 @@ export const TopContactBar: React.FC = () => {
           </a>
         </div>
 
-        {/* Right: Social Media */}
-        <div className="flex items-center gap-3 text-slate-200">
-          <span className="text-slate-300 font-medium">Ikuti Kami:</span>
-          <div className="flex items-center gap-2">
-            <a
-              href="#social"
-              className="w-5 h-5 rounded-full flex items-center justify-center hover:text-white hover:bg-navy-dark transition-colors"
-              aria-label="Facebook"
-            >
-              <FacebookIcon className="w-3.5 h-3.5" />
-            </a>
-            <a
-              href="#social"
-              className="w-5 h-5 rounded-full flex items-center justify-center hover:text-white hover:bg-navy-dark transition-colors"
-              aria-label="Twitter"
-            >
-              <TwitterIcon className="w-3.5 h-3.5" />
-            </a>
-            <a
-              href="#social"
-              className="w-5 h-5 rounded-full flex items-center justify-center hover:text-white hover:bg-navy-dark transition-colors"
-              aria-label="Instagram"
-            >
-              <InstagramIcon className="w-3.5 h-3.5" />
-            </a>
-            <a
-              href="#social"
-              className="w-5 h-5 rounded-full flex items-center justify-center hover:text-white hover:bg-navy-dark transition-colors"
-              aria-label="LinkedIn"
-            >
-              <LinkedinIcon className="w-3.5 h-3.5" />
-            </a>
-          </div>
-        </div>
+        <span className="text-slate-300">Belajar untuk semua</span>
       </div>
     </div>
   );

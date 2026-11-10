@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
+  ArrowDown,
+  ArrowUp,
   CheckCircle2,
   Clock,
   Edit,
@@ -25,36 +27,185 @@ import {
   List,
   Code,
   Link as LinkIcon,
-  Image as ImageIcon,
+  X,
 } from 'lucide-react';
 import { Card, Button, Input, Select, Badge, ProgressBar, Avatar } from '../../components/ui';
 import { primaryWebDevCourse } from '../../data/mockData';
 import { getCourseMedia, getUserAvatar } from '../../config/media';
+import { downloadCSV } from '../../utils/download';
+
+type Module = { id: string; title: string; status: string; badgeColor: string };
+type Material = { id: string; moduleId: string; title: string; type: 'video' | 'pdf' | 'lab'; detail: string };
+type QuizItem = {
+  id: string;
+  prompt: string;
+  options: { A: string; B: string; C: string; D: string };
+  correctOption: 'A' | 'B' | 'C' | 'D';
+  explanation: string;
+};
+type CreatedQuiz = { id: string; title: string; questions: number; duration: string; passingScore: number; items?: QuizItem[] };
+type QuizItemDraft = Omit<QuizItem, 'id'>;
+type EditorForm = {
+  type: 'module' | 'material' | 'quiz';
+  id?: string;
+  moduleId: string;
+  title: string;
+  materialType: Material['type'];
+  detail: string;
+  questions: string;
+  duration: string;
+  passingScore: string;
+};
+
+const initialModules: Module[] = [
+  { id: 'm-1', title: 'Modul 1: Dasar Web & Semantic HTML5', status: 'Selesai', badgeColor: 'active' },
+  { id: 'm-2', title: 'Modul 2: JavaScript ES6+ Modern & Pemrograman Asinkron', status: 'Selesai', badgeColor: 'active' },
+  { id: 'm-3', title: 'Modul 3: TypeScript untuk Aplikasi Frontend Modern', status: 'Selesai', badgeColor: 'active' },
+  { id: 'm-4', title: 'Modul 4: Arsitektur React & Frontend (Angkatan Aktif)', status: 'Modul Aktif', badgeColor: 'preview-free' },
+  { id: 'm-5', title: 'Modul 5: Microservices Backend dengan Node.js & Prisma', status: 'Sedang Ditinjau', badgeColor: 'in-review' },
+  { id: 'm-6', title: 'Modul 6: Deployment Cloud & Pipeline CI/CD', status: 'Draf', badgeColor: 'draft' },
+];
+
+const initialMaterials: Material[] = [
+  { id: 'material-video-15', moduleId: 'm-4', title: '15. Pendalaman useState, useEffect & Custom Hooks', type: 'video', detail: '28 menit' },
+  { id: 'material-pdf-15', moduleId: 'm-4', title: 'Modul-15-Hooks-Cheatsheet.pdf', type: 'pdf', detail: '1,2 MB' },
+  { id: 'material-lab-15', moduleId: 'm-4', title: 'Lab Interaktif: Sandbox Pengujian Custom Hook', type: 'lab', detail: 'Lab kode' },
+];
+const initialSyllabus = `### Bagian 1: Dasar Web dan DOM
+- Elemen HTML semantik dan aksesibilitas
+- CSS Grid dan Flexbox responsif
+
+### Bagian 2: React dan Pengelolaan State
+- Hooks React dan siklus pembaruan
+- Praktik membangun aplikasi interaktif`;
+
+const loadStoredArray = <T,>(key: string, fallback: T[], isValid: (value: unknown) => value is T): T[] => {
+  try {
+    const saved = localStorage.getItem(key);
+    if (!saved) return fallback;
+    const parsed: unknown = JSON.parse(saved);
+    if (!Array.isArray(parsed) || !parsed.every(isValid)) {
+      throw new Error(`Data tersimpan untuk ${key} tidak valid.`);
+    }
+    return parsed;
+  } catch (error) {
+    console.error(`Tidak dapat memuat ${key}.`, error);
+    return fallback;
+  }
+};
+
+const loadStoredCourseMeta = (key: string): { title?: string; synopsis?: string; syllabus?: string } => {
+  try {
+    const saved = localStorage.getItem(key);
+    if (!saved) return {};
+    const parsed: unknown = JSON.parse(saved);
+    if (typeof parsed !== 'object' || parsed === null) return {};
+    const meta = parsed as Record<string, unknown>;
+    return {
+      ...(typeof meta.title === 'string' ? { title: meta.title } : {}),
+      ...(typeof meta.synopsis === 'string' ? { synopsis: meta.synopsis } : {}),
+      ...(typeof meta.syllabus === 'string' ? { syllabus: meta.syllabus } : {}),
+    };
+  } catch (error) {
+    console.error(`Tidak dapat memuat ${key}.`, error);
+    return {};
+  }
+};
+
+const isModule = (value: unknown): value is Module => {
+  if (typeof value !== 'object' || value === null) return false;
+  const module = value as Record<string, unknown>;
+  return typeof module.id === 'string' && typeof module.title === 'string' &&
+    typeof module.status === 'string' && typeof module.badgeColor === 'string';
+};
+
+const isMaterial = (value: unknown): value is Material => {
+  if (typeof value !== 'object' || value === null) return false;
+  const material = value as Record<string, unknown>;
+  return typeof material.id === 'string' && typeof material.moduleId === 'string' &&
+    typeof material.title === 'string' && typeof material.detail === 'string' &&
+    (material.type === 'video' || material.type === 'pdf' || material.type === 'lab');
+};
+
+const isCreatedQuiz = (value: unknown): value is CreatedQuiz => {
+  if (typeof value !== 'object' || value === null) return false;
+  const quiz = value as Record<string, unknown>;
+  return typeof quiz.id === 'string' && typeof quiz.title === 'string' &&
+    typeof quiz.questions === 'number' && typeof quiz.duration === 'string' &&
+    typeof quiz.passingScore === 'number' &&
+    (quiz.items === undefined || (Array.isArray(quiz.items) && quiz.items.every(isQuizItem)));
+};
+
+const isQuizItem = (value: unknown): value is QuizItem => {
+  if (typeof value !== 'object' || value === null) return false;
+  const item = value as Record<string, unknown>;
+  if (typeof item.options !== 'object' || item.options === null) return false;
+  const options = item.options as Record<string, unknown>;
+  return typeof item.id === 'string' && typeof item.prompt === 'string' &&
+    ['A', 'B', 'C', 'D'].every((key) => typeof options[key] === 'string') &&
+    ['A', 'B', 'C', 'D'].includes(String(item.correctOption)) &&
+    typeof item.explanation === 'string';
+};
 
 export const InstructorCourseManage: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const course = primaryWebDevCourse;
   const courseMedia = getCourseMedia(course.slug);
+  const [storedCourseMeta] = useState(() => loadStoredCourseMeta(`eduspace_course_meta_${id ?? course.slug}`));
 
-  const [activeTab, setActiveTab] = useState('info');
-  const [courseTitle, setCourseTitle] = useState(course.title);
-  const [synopsis, setSynopsis] = useState(
+  const [activeTab, setActiveTab] = useState<'info' | 'curriculum' | 'quizzes' | 'students' | 'analytics'>('info');
+  const [courseTitle, setCourseTitle] = useState(storedCourseMeta.title ?? course.title);
+  const [synopsis, setSynopsis] = useState(storedCourseMeta.synopsis ??
     'Bootcamp komprehensif untuk mempelajari pengembangan web full-stack modern dengan React 18, TypeScript, Node.js, dan microservices berbasis container.'
   );
+  const [syllabus, setSyllabus] = useState(storedCourseMeta.syllabus ?? initialSyllabus);
+  const syllabusRef = useRef<HTMLTextAreaElement>(null);
 
   // Curriculum draggable modules state
-  const [modules, setModules] = useState([
-    { id: 'm-1', title: 'Modul 1: Dasar Web & Semantic HTML5', status: 'Selesai', badgeColor: 'active' },
-    { id: 'm-2', title: 'Modul 2: JavaScript ES6+ Modern & Pemrograman Asinkron', status: 'Selesai', badgeColor: 'active' },
-    { id: 'm-3', title: 'Modul 3: TypeScript untuk Aplikasi Frontend Modern', status: 'Selesai', badgeColor: 'active' },
-    { id: 'm-4', title: 'Modul 4: Arsitektur React & Frontend (Angkatan Aktif)', status: 'Modul Aktif', badgeColor: 'preview-free' },
-    { id: 'm-5', title: 'Modul 5: Microservices Backend dengan Node.js & Prisma', status: 'Sedang Ditinjau', badgeColor: 'in-review' },
-    { id: 'm-6', title: 'Modul 6: Deployment Cloud & Pipeline CI/CD', status: 'Draf', badgeColor: 'draft' },
-  ]);
+  const [modules, setModules] = useState(() => loadStoredArray('eduspace_curriculum_modules', initialModules, isModule));
+  const [materials, setMaterials] = useState(() => loadStoredArray('eduspace_curriculum_materials', initialMaterials, isMaterial));
+  const [createdQuizzes, setCreatedQuizzes] = useState(() => loadStoredArray('eduspace_created_quizzes', [], isCreatedQuiz));
+  const [editorForm, setEditorForm] = useState<EditorForm | null>(null);
+  const [isReordering, setIsReordering] = useState(false);
+  const [courseFeedback, setCourseFeedback] = useState('');
+  const [quizItemEditor, setQuizItemEditor] = useState<{ quizId: string; itemId?: string } | null>(null);
+  const [quizItemDraft, setQuizItemDraft] = useState<QuizItemDraft>({
+    prompt: '',
+    options: { A: '', B: '', C: '', D: '' },
+    correctOption: 'A',
+    explanation: '',
+  });
+
+  const insertSyllabusFormat = (prefix: string, suffix = '') => {
+    const textarea = syllabusRef.current;
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selected = syllabus.slice(start, end) || 'teks';
+    const replacement = `${prefix}${selected}${suffix}`;
+    const updated = `${syllabus.slice(0, start)}${replacement}${syllabus.slice(end)}`;
+    setSyllabus(updated);
+    requestAnimationFrame(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + replacement.length, start + replacement.length);
+    });
+  };
 
   // Drag and drop handler
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
+
+  useEffect(() => {
+    localStorage.setItem('eduspace_curriculum_modules', JSON.stringify(modules));
+  }, [modules]);
+
+  useEffect(() => {
+    localStorage.setItem('eduspace_curriculum_materials', JSON.stringify(materials));
+  }, [materials]);
+
+  useEffect(() => {
+    localStorage.setItem('eduspace_created_quizzes', JSON.stringify(createdQuizzes));
+  }, [createdQuizzes]);
 
   const handleDragStart = (idx: number) => {
     setDraggedIdx(idx);
@@ -70,6 +221,143 @@ export const InstructorCourseManage: React.FC = () => {
     setModules(newItems);
   };
 
+  const moveModule = (index: number, direction: -1 | 1) => {
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= modules.length) return;
+    setModules((current) => {
+      const reordered = [...current];
+      [reordered[index], reordered[targetIndex]] = [reordered[targetIndex], reordered[index]];
+      return reordered;
+    });
+  };
+
+  const openEditor = (form: Partial<EditorForm> & Pick<EditorForm, 'type'>) => {
+    setEditorForm({
+      type: form.type,
+      id: form.id,
+      moduleId: form.moduleId || modules[0]?.id || '',
+      title: form.title || '',
+      materialType: form.materialType || 'video',
+      detail: form.detail || '',
+      questions: form.questions || '10',
+      duration: form.duration || '15',
+      passingScore: form.passingScore || '70',
+    });
+  };
+
+  const saveEditorForm = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!editorForm || !editorForm.title.trim()) return;
+
+    if (editorForm.type === 'module') {
+      if (editorForm.id) {
+        setModules((current) => current.map((module) => module.id === editorForm.id
+          ? { ...module, title: editorForm.title.trim() }
+          : module));
+      } else {
+        setModules((current) => [...current, {
+          id: `m-${Date.now()}`,
+          title: editorForm.title.trim(),
+          status: 'Draf',
+          badgeColor: 'draft',
+        }]);
+      }
+    } else if (editorForm.type === 'material') {
+      const savedMaterial: Material = {
+        id: editorForm.id || `material-${Date.now()}`,
+        moduleId: editorForm.moduleId,
+        title: editorForm.title.trim(),
+        type: editorForm.materialType,
+        detail: editorForm.detail.trim() || (editorForm.materialType === 'video' ? 'Video' : editorForm.materialType === 'pdf' ? 'PDF' : 'Lab kode'),
+      };
+      setMaterials((current) => editorForm.id
+        ? current.map((material) => material.id === editorForm.id ? savedMaterial : material)
+        : [...current, savedMaterial]);
+    } else {
+      const questions = Number(editorForm.questions);
+      const passingScore = Number(editorForm.passingScore);
+      if (!Number.isInteger(questions) || questions < 1 || !Number.isFinite(passingScore) || passingScore < 0 || passingScore > 100) return;
+      setCreatedQuizzes((current) => [...current, {
+        id: `quiz-${Date.now()}`,
+        title: editorForm.title.trim(),
+        questions,
+        duration: `${editorForm.duration} menit`,
+        passingScore,
+      }]);
+    }
+    setEditorForm(null);
+  };
+
+  const openQuizItemEditor = (quiz: CreatedQuiz, item?: QuizItem) => {
+    setQuizItemDraft(item
+      ? {
+        prompt: item.prompt,
+        options: { ...item.options },
+        correctOption: item.correctOption,
+        explanation: item.explanation,
+      }
+      : {
+        prompt: '',
+        options: { A: '', B: '', C: '', D: '' },
+        correctOption: 'A',
+        explanation: '',
+      });
+    setQuizItemEditor({ quizId: quiz.id, itemId: item?.id });
+  };
+
+  const saveQuizItem = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!quizItemEditor) return;
+    const quiz = createdQuizzes.find((item) => item.id === quizItemEditor.quizId);
+    if (!quiz) return;
+    const currentItems = quiz.items ?? [];
+    if (!quizItemEditor.itemId && currentItems.length >= quiz.questions) return;
+
+    const savedItem: QuizItem = {
+      ...quizItemDraft,
+      id: quizItemEditor.itemId ?? `question-${Date.now()}`,
+      prompt: quizItemDraft.prompt.trim(),
+      options: {
+        A: quizItemDraft.options.A.trim(),
+        B: quizItemDraft.options.B.trim(),
+        C: quizItemDraft.options.C.trim(),
+        D: quizItemDraft.options.D.trim(),
+      },
+      explanation: quizItemDraft.explanation.trim(),
+    };
+    setCreatedQuizzes((current) => current.map((item) => {
+      if (item.id !== quiz.id) return item;
+      const items = item.items ?? [];
+      return {
+        ...item,
+        items: quizItemEditor.itemId
+          ? items.map((question) => question.id === quizItemEditor.itemId ? savedItem : question)
+          : [...items, savedItem],
+      };
+    }));
+    setQuizItemEditor(null);
+  };
+
+  const removeQuizItem = (quiz: CreatedQuiz, item: QuizItem) => {
+    if (!window.confirm(`Hapus pertanyaan "${item.prompt}"?`)) return;
+    setCreatedQuizzes((current) => current.map((entry) => entry.id === quiz.id
+      ? { ...entry, items: (entry.items ?? []).filter((question) => question.id !== item.id) }
+      : entry));
+  };
+
+  const removeModule = (moduleId: string) => {
+    const module = modules.find((item) => item.id === moduleId);
+    if (!module || !window.confirm(`Hapus "${module.title}" beserta seluruh materinya?`)) return;
+    setModules((current) => current.filter((item) => item.id !== moduleId));
+    setMaterials((current) => current.filter((item) => item.moduleId !== moduleId));
+  };
+
+  const removeMaterial = (materialId: string) => {
+    const material = materials.find((item) => item.id === materialId);
+    if (!material || !window.confirm(`Hapus materi "${material.title}"?`)) return;
+    setMaterials((current) => current.filter((item) => item.id !== materialId));
+  };
+
   // Student table filter state
   const [studentFilter, setStudentFilter] = useState<'all' | 'active' | 'completed' | 'at-risk'>('all');
   const [studentSearch, setStudentSearch] = useState('');
@@ -80,6 +368,30 @@ export const InstructorCourseManage: React.FC = () => {
     { name: 'Budi Santoso', avatarId: 'budi-santoso', enrolledDate: '05 Jan 2025', progress: 100, isCompleted: true, quizAvg: 95.0, lastActive: '3 hari lalu' },
     { name: 'Sarah Jenkins', avatarId: 'usr-84920', enrolledDate: '22 Feb 2025', progress: 40, quizAvg: 78.5, lastActive: '5 hari lalu', isAtRisk: true },
   ];
+  const filteredEnrolledStudents = enrolledStudents.filter((student) => {
+    const query = studentSearch.trim().toLowerCase();
+    if (query && !student.name.toLowerCase().includes(query)) return false;
+    if (studentFilter === 'completed' && !student.isCompleted) return false;
+    if (studentFilter === 'at-risk' && !student.isAtRisk) return false;
+    if (studentFilter === 'active' && (student.isCompleted || student.isAtRisk)) return false;
+    return true;
+  });
+
+  const saveCourseStatus = (status: 'draft' | 'published') => {
+    try {
+      localStorage.setItem(`eduspace_course_meta_${id ?? course.slug}`, JSON.stringify({
+        title: courseTitle,
+        synopsis,
+        syllabus,
+        status,
+        updatedAt: new Date().toISOString(),
+      }));
+      setCourseFeedback(status === 'draft' ? 'Draf kursus berhasil disimpan.' : 'Perubahan kursus berhasil diterbitkan.');
+    } catch (error) {
+      console.error('Gagal menyimpan perubahan kursus', error);
+      setCourseFeedback('Perubahan kursus tidak dapat disimpan di perangkat ini.');
+    }
+  };
 
   return (
     <div className="max-w-[1400px] mx-auto space-y-6">
@@ -120,14 +432,15 @@ export const InstructorCourseManage: React.FC = () => {
           >
             Pratinjau sebagai Peserta
           </Button>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={() => saveCourseStatus('draft')}>
             Simpan sebagai Draf
           </Button>
-          <Button variant="orange" size="sm">
+          <Button variant="orange" size="sm" onClick={() => saveCourseStatus('published')}>
             Terbitkan Perubahan
           </Button>
         </div>
       </div>
+      {courseFeedback && <p role="status" className="text-xs font-semibold text-blue">{courseFeedback}</p>}
 
       {/* 2. TAB PILLS */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-border">
@@ -141,7 +454,8 @@ export const InstructorCourseManage: React.FC = () => {
           <button
             key={tab.id}
             type="button"
-            onClick={() => setActiveTab(tab.id)}
+            aria-pressed={activeTab === tab.id}
+            onClick={() => setActiveTab(tab.id as typeof activeTab)}
             className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all ${
               activeTab === tab.id
                 ? 'bg-navy text-white shadow-sm'
@@ -156,8 +470,9 @@ export const InstructorCourseManage: React.FC = () => {
       {/* 3. MAIN WORKSPACE */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
         {/* Left Column (8 cols): Wide Cards */}
-        <div className="xl:col-span-8 space-y-8">
+        <div className={['info', 'curriculum', 'students'].includes(activeTab) ? 'xl:col-span-12 space-y-8' : 'hidden'}>
           {/* CARD 1: Course Basic Information */}
+          {activeTab === 'info' && (
           <Card className="p-6 sm:p-8 space-y-6">
             <div className="flex items-center justify-between pb-4 border-b border-border">
               <div className="flex items-center gap-2">
@@ -234,20 +549,21 @@ export const InstructorCourseManage: React.FC = () => {
                   {/* Toolbar */}
                   <div className="p-2 border-b border-border bg-slate-50 flex items-center gap-1 flex-wrap">
                     {[
-                      { icon: <Bold className="w-3.5 h-3.5" />, title: 'Tebal' },
-                      { icon: <Italic className="w-3.5 h-3.5" />, title: 'Miring' },
-                      { icon: <Strikethrough className="w-3.5 h-3.5" />, title: 'Coret' },
-                      { icon: <Heading2 className="w-3.5 h-3.5" />, title: 'Judul 2' },
-                      { icon: <Heading3 className="w-3.5 h-3.5" />, title: 'Judul 3' },
-                      { icon: <List className="w-3.5 h-3.5" />, title: 'Daftar Berpoin' },
-                      { icon: <Code className="w-3.5 h-3.5" />, title: 'Blok kode' },
-                      { icon: <LinkIcon className="w-3.5 h-3.5" />, title: 'Tautan' },
-                      { icon: <ImageIcon className="w-3.5 h-3.5" />, title: 'Gambar media' },
+                      { icon: <Bold className="w-3.5 h-3.5" />, title: 'Tebal', prefix: '**', suffix: '**' },
+                      { icon: <Italic className="w-3.5 h-3.5" />, title: 'Miring', prefix: '*', suffix: '*' },
+                      { icon: <Strikethrough className="w-3.5 h-3.5" />, title: 'Coret', prefix: '~~', suffix: '~~' },
+                      { icon: <Heading2 className="w-3.5 h-3.5" />, title: 'Judul 2', prefix: '## ', suffix: '' },
+                      { icon: <Heading3 className="w-3.5 h-3.5" />, title: 'Judul 3', prefix: '### ', suffix: '' },
+                      { icon: <List className="w-3.5 h-3.5" />, title: 'Daftar Berpoin', prefix: '- ', suffix: '' },
+                      { icon: <Code className="w-3.5 h-3.5" />, title: 'Blok kode', prefix: '```\n', suffix: '\n```' },
+                      { icon: <LinkIcon className="w-3.5 h-3.5" />, title: 'Tautan', prefix: '[', suffix: '](url)' },
                     ].map((tool, idx) => (
                       <button
                         key={idx}
                         type="button"
                         title={tool.title}
+                        aria-label={tool.title}
+                        onClick={() => insertSyllabusFormat(tool.prefix, tool.suffix)}
                         className="p-1.5 rounded-lg text-slate-600 hover:text-navy hover:bg-white border border-transparent hover:border-border transition-colors"
                       >
                         {tool.icon}
@@ -255,13 +571,10 @@ export const InstructorCourseManage: React.FC = () => {
                     ))}
                   </div>
                   <textarea
+                    ref={syllabusRef}
                     rows={4}
-                    defaultValue={`### Module 1: Web Foundations & DOM Trees
-- Semantic HTML elements, accessibility standards (WCAG 2.1 AA)
-- Modern CSS Grid and Flexbox responsive layouts
-
-### Module 4: Advanced React & State
-- Fiber reconciliation, hooks internals, and memory profiling`}
+                    value={syllabus}
+                    onChange={(event) => setSyllabus(event.target.value)}
                     className="w-full p-4 text-xs sm:text-sm font-mono text-slate-700 focus:outline-none bg-white"
                   />
                 </div>
@@ -287,24 +600,18 @@ export const InstructorCourseManage: React.FC = () => {
                     <span className="text-[11px] text-slate-400 block mb-3">
                       Resolusi tinggi 1920x1080 • Dikelola melalui repositori media terpusat
                     </span>
-                    <div className="flex items-center justify-center sm:justify-start gap-3">
-                      <Button variant="outline" size="sm" className="text-blue border-blue/30">
-                        Ganti Gambar
-                      </Button>
-                      <button
-                        type="button"
-                        className="text-xs font-semibold text-red hover:underline"
-                      >
-                        Hapus
-                      </button>
-                    </div>
+                    <p className="text-xs text-slate-500">
+                      Gambar dikelola melalui repositori media, sehingga perubahan gambar tidak tersedia di editor demo ini.
+                    </p>
                   </div>
                 </div>
               </div>
             </div>
           </Card>
+          )}
 
           {/* CARD 2: Course Curriculum & Learning Materials */}
+          {activeTab === 'curriculum' && (
           <Card className="p-6 sm:p-8 space-y-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-border">
               <div className="flex items-center gap-2">
@@ -313,15 +620,22 @@ export const InstructorCourseManage: React.FC = () => {
                   <h3 className="text-base font-bold text-text-heading">
                     Kurikulum Kursus & Materi Pembelajaran
                   </h3>
-                  <span className="text-xs text-slate-400">Total 6 Bagian • Seret modul untuk mengurutkan</span>
+                  <span className="text-xs text-slate-400">
+                    Total {modules.length} Bagian{isReordering ? ' • Seret atau gunakan tombol panah untuk mengurutkan' : ''}
+                  </span>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm">
-                  Urutkan Ulang Bagian
+                <Button variant="outline" size="sm" onClick={() => setIsReordering((value) => !value)}>
+                  {isReordering ? 'Selesai Mengurutkan' : 'Urutkan Ulang Bagian'}
                 </Button>
-                <Button variant="navy" size="sm" leftIcon={<Plus className="w-3.5 h-3.5" />}>
+                <Button
+                  variant="navy"
+                  size="sm"
+                  leftIcon={<Plus className="w-3.5 h-3.5" />}
+                  onClick={() => openEditor({ type: 'material', moduleId: modules.find((module) => module.id === 'm-4')?.id || modules[0]?.id })}
+                >
                   Tambah Materi
                 </Button>
               </div>
@@ -332,10 +646,11 @@ export const InstructorCourseManage: React.FC = () => {
               {modules.map((m, idx) => (
                 <div
                   key={m.id}
-                  draggable
-                  onDragStart={() => handleDragStart(idx)}
-                  onDragOver={(e) => handleDragOver(e, idx)}
-                  className="border border-border rounded-xl p-4 bg-white hover:border-blue/40 transition-all cursor-move shadow-sm"
+                  draggable={isReordering}
+                  onDragStart={() => isReordering && handleDragStart(idx)}
+                  onDragOver={(e) => isReordering && handleDragOver(e, idx)}
+                  onDragEnd={() => setDraggedIdx(null)}
+                  className={`border border-border rounded-xl p-4 bg-white hover:border-blue/40 transition-all shadow-sm ${isReordering ? 'cursor-move' : ''}`}
                 >
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -346,73 +661,101 @@ export const InstructorCourseManage: React.FC = () => {
                     </div>
 
                     <div className="flex items-center gap-3 shrink-0">
+                      {isReordering && (
+                        <div className="flex items-center">
+                          <button
+                            type="button"
+                            aria-label={`Pindahkan ${m.title} ke atas`}
+                            disabled={idx === 0}
+                            onClick={() => moveModule(idx, -1)}
+                            className="rounded p-1 text-slate-400 hover:text-navy disabled:opacity-30"
+                          >
+                            <ArrowUp className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            aria-label={`Pindahkan ${m.title} ke bawah`}
+                            disabled={idx === modules.length - 1}
+                            onClick={() => moveModule(idx, 1)}
+                            className="rounded p-1 text-slate-400 hover:text-navy disabled:opacity-30"
+                          >
+                            <ArrowDown className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
                       <Badge variant={m.badgeColor as any} size="xs">
                         {m.status}
                       </Badge>
-                      <button type="button" className="text-slate-400 hover:text-navy p-1">
+                      <button
+                        type="button"
+                        aria-label={`Ubah ${m.title}`}
+                        onClick={() => openEditor({ type: 'module', id: m.id, title: m.title })}
+                        className="text-slate-400 hover:text-navy p-1"
+                      >
                         <Edit className="w-3.5 h-3.5" />
                       </button>
-                      <button type="button" className="text-slate-400 hover:text-red p-1">
+                      <button
+                        type="button"
+                        aria-label={`Hapus ${m.title}`}
+                        onClick={() => removeModule(m.id)}
+                        className="text-slate-400 hover:text-red p-1"
+                      >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
 
-                  {/* Expanded Items for Module 4 */}
-                  {m.id === 'm-4' && (
+                  {materials.some((material) => material.moduleId === m.id) && (
                     <div className="mt-4 pt-3 border-t border-border/60 space-y-2 pl-7">
-                      <div className="flex items-center justify-between text-xs p-2 rounded-lg bg-slate-50">
-                        <div className="flex items-center gap-2">
-                          <Play className="w-3.5 h-3.5 text-blue" />
-                          <span>15. Pendalaman useState, useEffect & Custom Hooks</span>
-                          <span className="px-1.5 py-0.5 rounded bg-soft-blue text-blue text-[9px] font-bold">
-                            Pratinjau Gratis
-                          </span>
+                      {materials.filter((material) => material.moduleId === m.id).map((material) => (
+                        <div key={material.id} className="flex items-center justify-between gap-3 text-xs p-2 rounded-lg bg-slate-50">
+                          <div className="flex items-center gap-2 min-w-0">
+                            {material.type === 'video' && <Play className="w-3.5 h-3.5 text-blue shrink-0" />}
+                            {material.type === 'pdf' && <FileText className="w-3.5 h-3.5 text-orange shrink-0" />}
+                            {material.type === 'lab' && <Terminal className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
+                            <span className="truncate">{material.title}</span>
+                            <span className="px-1.5 py-0.5 rounded bg-soft-blue text-blue text-[9px] font-bold uppercase">
+                              {material.type === 'video' ? 'Video' : material.type === 'pdf' ? 'PDF' : 'Lab'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-slate-400">{material.detail}</span>
+                            <button
+                              type="button"
+                              aria-label={`Ubah materi ${material.title}`}
+                              onClick={() => openEditor({
+                                type: 'material',
+                                id: material.id,
+                                moduleId: material.moduleId,
+                                title: material.title,
+                                materialType: material.type,
+                                detail: material.detail,
+                              })}
+                              className="text-slate-400 hover:text-navy"
+                            >
+                              <Edit className="w-3 h-3" />
+                            </button>
+                            <button
+                              type="button"
+                              aria-label={`Hapus materi ${material.title}`}
+                              onClick={() => removeMaterial(material.id)}
+                              className="text-slate-400 hover:text-red"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-slate-400">28m</span>
-                          <Edit className="w-3 h-3 text-slate-400 hover:text-navy cursor-pointer" />
-                          <Trash2 className="w-3 h-3 text-slate-400 hover:text-red cursor-pointer" />
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between text-xs p-2 rounded-lg bg-slate-50">
-                        <div className="flex items-center gap-2">
-                          <FileText className="w-3.5 h-3.5 text-orange" />
-                          <span>Module-15-Hooks-Cheatsheet.pdf</span>
-                          <span className="px-1.5 py-0.5 rounded bg-orange-tint text-orange text-[9px] font-bold">
-                            PDF
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-slate-400">1.2 MB</span>
-                          <Edit className="w-3 h-3 text-slate-400 hover:text-navy cursor-pointer" />
-                          <Trash2 className="w-3 h-3 text-slate-400 hover:text-red cursor-pointer" />
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between text-xs p-2 rounded-lg bg-slate-50">
-                        <div className="flex items-center gap-2">
-                          <Terminal className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>Interactive Lab: Custom Hook Testing Sandbox</span>
-                          <span className="px-1.5 py-0.5 rounded bg-green-tint text-green text-[9px] font-bold">
-                            Interactive Lab
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-slate-400">Lab Kode</span>
-                          <Edit className="w-3 h-3 text-slate-400 hover:text-navy cursor-pointer" />
-                          <Trash2 className="w-3 h-3 text-slate-400 hover:text-red cursor-pointer" />
-                        </div>
-                      </div>
+                      ))}
                     </div>
                   )}
                 </div>
               ))}
             </div>
           </Card>
+          )}
 
           {/* CARD 3: Enrolled Students Overview */}
+          {activeTab === 'students' && (
           <Card className="p-6 sm:p-8 space-y-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-border">
               <div>
@@ -428,8 +771,22 @@ export const InstructorCourseManage: React.FC = () => {
                   Track individual pacing, submission rates, and cohort compliance
                 </span>
               </div>
-              <Button variant="outline" size="sm" leftIcon={<Download className="w-3.5 h-3.5" />}>
-                Export CSV
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => downloadCSV('peserta-kursus.csv', [
+                  ['Nama', 'Tanggal Daftar', 'Progres', 'Rata-rata Kuis', 'Aktif Terakhir'],
+                  ...filteredEnrolledStudents.map((student) => [
+                    student.name,
+                    student.enrolledDate,
+                    `${student.progress}%`,
+                    `${student.quizAvg}%`,
+                    student.lastActive,
+                  ]),
+                ])}
+                leftIcon={<Download className="w-3.5 h-3.5" />}
+              >
+                Ekspor CSV
               </Button>
             </div>
 
@@ -443,7 +800,7 @@ export const InstructorCourseManage: React.FC = () => {
                     studentFilter === 'all' ? 'bg-white text-navy shadow-sm' : 'text-slate-600'
                   }`}
                 >
-                  All (1,450)
+                  Semua
                 </button>
                 <button
                   type="button"
@@ -452,7 +809,7 @@ export const InstructorCourseManage: React.FC = () => {
                     studentFilter === 'active' ? 'bg-white text-navy shadow-sm' : 'text-slate-600'
                   }`}
                 >
-                  Active (1,290)
+                  Aktif
                 </button>
                 <button
                   type="button"
@@ -461,7 +818,7 @@ export const InstructorCourseManage: React.FC = () => {
                     studentFilter === 'completed' ? 'bg-white text-navy shadow-sm' : 'text-slate-600'
                   }`}
                 >
-                  Completed (112)
+                  Selesai
                 </button>
                 <button
                   type="button"
@@ -470,7 +827,7 @@ export const InstructorCourseManage: React.FC = () => {
                     studentFilter === 'at-risk' ? 'bg-white text-navy shadow-sm' : 'text-slate-600'
                   }`}
                 >
-                  At Risk (48)
+                  Berisiko
                 </button>
               </div>
 
@@ -498,7 +855,7 @@ export const InstructorCourseManage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
-                  {enrolledStudents.map((st) => (
+                  {filteredEnrolledStudents.map((st) => (
                     <tr key={st.name} className="hover:bg-slate-50 transition-colors">
                       <td className="py-3.5">
                         <div className="flex items-center gap-2.5">
@@ -523,18 +880,28 @@ export const InstructorCourseManage: React.FC = () => {
                   ))}
                 </tbody>
               </table>
+              {filteredEnrolledStudents.length === 0 && (
+                <p className="py-8 text-center text-sm text-slate-500">Tidak ada peserta yang cocok dengan filter.</p>
+              )}
             </div>
           </Card>
+          )}
         </div>
 
         {/* Right Column (4 cols): Module Quizzes, Health & Engagement, Office Hours */}
-        <div className="xl:col-span-4 space-y-6 sticky top-24">
+        <div className={['quizzes', 'analytics'].includes(activeTab) ? 'xl:col-span-12 space-y-6' : 'hidden'}>
           {/* Right Card 1: Module Quizzes */}
+          {activeTab === 'quizzes' && (
           <Card className="p-6">
             <div className="flex items-center justify-between pb-3 border-b border-border mb-4">
               <h3 className="text-sm font-bold text-text-heading">Kuis Modul</h3>
-              <Button variant="orange" size="sm" leftIcon={<Plus className="w-3.5 h-3.5" />}>
-                Add Quiz
+              <Button
+                variant="orange"
+                size="sm"
+                leftIcon={<Plus className="w-3.5 h-3.5" />}
+                onClick={() => openEditor({ type: 'quiz' })}
+              >
+                Tambah Kuis
               </Button>
             </div>
 
@@ -556,11 +923,8 @@ export const InstructorCourseManage: React.FC = () => {
                   <span className="text-green">Lulus: <strong>92%</strong></span>
                 </div>
                 <div className="flex items-center gap-3 text-xs font-bold text-blue">
-                  <a href="#analytics" className="hover:underline">Lihat Analitik</a>
-                  <span>•</span>
-                  <a href="#edit" className="hover:underline">Ubah</a>
-                  <span>•</span>
-                  <a href="#dup" className="hover:underline">Duplikat</a>
+                  <button type="button" onClick={() => setActiveTab('analytics')} className="hover:underline">Lihat Analitik</button>
+                  <span className="font-normal text-slate-400">Kuis contoh — tidak dapat diedit</span>
                 </div>
               </div>
 
@@ -576,9 +940,8 @@ export const InstructorCourseManage: React.FC = () => {
                   12 Questions • 20 Mins Limit • Min Pass 75%
                 </p>
                 <div className="flex items-center gap-3 text-xs font-bold text-blue">
-                  <a href="#analytics" className="hover:underline">Lihat Analitik</a>
-                  <span>•</span>
-                  <a href="#edit" className="hover:underline">Ubah</a>
+                  <button type="button" onClick={() => setActiveTab('analytics')} className="hover:underline">Lihat Analitik</button>
+                  <span className="font-normal text-slate-400">Kuis contoh — tidak dapat diedit</span>
                 </div>
               </div>
 
@@ -594,13 +957,58 @@ export const InstructorCourseManage: React.FC = () => {
                   Unpublished changes • In preparation for Week 6
                 </p>
                 <div className="flex items-center gap-3 text-xs font-bold text-orange">
-                  <a href="#edit" className="hover:underline">Lanjutkan Mengedit →</a>
+                  <span>Kuis contoh — tidak dapat diedit</span>
                 </div>
               </div>
+
+              {createdQuizzes.map((quiz) => (
+                <div key={quiz.id} className="p-4 rounded-xl border border-border bg-white">
+                  <div className="flex items-start justify-between gap-2 mb-1">
+                    <span className="text-xs font-bold text-text-heading">{quiz.title}</span>
+                    <Badge variant={(quiz.items?.length ?? 0) === quiz.questions ? 'active' : 'draft'} size="xs">
+                      {(quiz.items?.length ?? 0) === quiz.questions ? 'Siap' : 'Draf'}
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    {quiz.items?.length ?? 0}/{quiz.questions} soal dibuat • Durasi {quiz.duration} • Nilai lulus {quiz.passingScore}%
+                  </p>
+                  <div className="mt-3 space-y-2">
+                    {(quiz.items ?? []).map((item, index) => (
+                      <div key={item.id} className="flex items-start justify-between gap-2 rounded-lg bg-slate-50 p-2.5">
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-slate-700">{index + 1}. {item.prompt}</p>
+                          <p className="mt-1 text-[11px] font-semibold text-green">Kunci jawaban: {item.correctOption}. {item.options[item.correctOption]}</p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-1">
+                          <button type="button" aria-label={`Ubah soal ${index + 1}`} onClick={() => openQuizItemEditor(quiz, item)} className="rounded p-1 text-slate-400 hover:text-blue">
+                            <Edit className="h-3.5 w-3.5" />
+                          </button>
+                          <button type="button" aria-label={`Hapus soal ${index + 1}`} onClick={() => removeQuizItem(quiz, item)} className="rounded p-1 text-slate-400 hover:text-red">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-3"
+                    disabled={(quiz.items?.length ?? 0) >= quiz.questions}
+                    onClick={() => openQuizItemEditor(quiz)}
+                    leftIcon={<Plus className="h-3.5 w-3.5" />}
+                  >
+                    Tambah Soal & Jawaban
+                  </Button>
+                </div>
+              ))}
             </div>
           </Card>
+          )}
 
           {/* Right Card 2: Course Health & Engagement */}
+          {activeTab === 'analytics' && (
           <Card className="p-6">
             <h3 className="text-sm font-bold text-text-heading mb-2">
               Course Health & Engagement
@@ -625,8 +1033,10 @@ export const InstructorCourseManage: React.FC = () => {
               </div>
             </div>
           </Card>
+          )}
 
           {/* Right Card 3: Navy Card - Instructor Office Hours */}
+          {activeTab === 'analytics' && (
           <div className="bg-navy rounded-2xl p-6 text-white shadow-soft flex items-center justify-between gap-4">
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wider text-orange block mb-0.5">
@@ -647,8 +1057,232 @@ export const InstructorCourseManage: React.FC = () => {
               Manage
             </Button>
           </div>
+          )}
         </div>
       </div>
+
+      {editorForm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-navy/50 p-4"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setEditorForm(null);
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="curriculum-dialog-title"
+            className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-soft-lg"
+          >
+            <div className="mb-5 flex items-center justify-between">
+              <h2 id="curriculum-dialog-title" className="text-lg font-bold text-text-heading">
+                {editorForm.type === 'quiz'
+                  ? 'Tambah Kuis'
+                  : editorForm.type === 'material'
+                  ? editorForm.id ? 'Ubah Materi' : 'Tambah Materi'
+                  : editorForm.id ? 'Ubah Bagian' : 'Tambah Bagian'}
+              </h2>
+              <button
+                type="button"
+                aria-label="Tutup formulir"
+                onClick={() => setEditorForm(null)}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-navy"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <form onSubmit={saveEditorForm} className="space-y-4">
+              <label className="block text-xs font-semibold text-text-heading">
+                {editorForm.type === 'quiz' ? 'Nama kuis' : editorForm.type === 'material' ? 'Nama materi' : 'Nama bagian'}
+                <input
+                  autoFocus
+                  required
+                  maxLength={120}
+                  value={editorForm.title}
+                  onChange={(event) => setEditorForm({ ...editorForm, title: event.target.value })}
+                  className="mt-1.5 w-full rounded-xl border border-border px-3 py-2.5 text-sm font-normal text-slate-800 focus:border-blue focus:outline-none"
+                  placeholder={editorForm.type === 'quiz' ? 'mis. Kuis Arsitektur React' : 'Masukkan judul'}
+                />
+              </label>
+
+              {editorForm.type === 'material' && (
+                <>
+                  <label className="block text-xs font-semibold text-text-heading">
+                    Bagian kursus
+                    <select
+                      value={editorForm.moduleId}
+                      required
+                      onChange={(event) => setEditorForm({ ...editorForm, moduleId: event.target.value })}
+                      className="mt-1.5 w-full rounded-xl border border-border bg-white px-3 py-2.5 text-sm font-normal text-slate-800 focus:border-blue focus:outline-none"
+                    >
+                      {modules.map((module) => <option key={module.id} value={module.id}>{module.title}</option>)}
+                    </select>
+                  </label>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <label className="block text-xs font-semibold text-text-heading">
+                      Jenis materi
+                      <select
+                        value={editorForm.materialType}
+                        onChange={(event) => {
+                          const materialType = event.target.value;
+                          if (materialType === 'video' || materialType === 'pdf' || materialType === 'lab') {
+                            setEditorForm({ ...editorForm, materialType });
+                          }
+                        }}
+                        className="mt-1.5 w-full rounded-xl border border-border bg-white px-3 py-2.5 text-sm font-normal text-slate-800 focus:border-blue focus:outline-none"
+                      >
+                        <option value="video">Video</option>
+                        <option value="pdf">PDF</option>
+                        <option value="lab">Lab interaktif</option>
+                      </select>
+                    </label>
+                    <label className="block text-xs font-semibold text-text-heading">
+                      Durasi / keterangan
+                      <input
+                        value={editorForm.detail}
+                        onChange={(event) => setEditorForm({ ...editorForm, detail: event.target.value })}
+                        className="mt-1.5 w-full rounded-xl border border-border px-3 py-2.5 text-sm font-normal text-slate-800 focus:border-blue focus:outline-none"
+                        placeholder="mis. 20 menit"
+                      />
+                    </label>
+                  </div>
+                </>
+              )}
+
+              {editorForm.type === 'quiz' && (
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <label className="block text-xs font-semibold text-text-heading">
+                    Jumlah pertanyaan
+                    <input
+                      type="number"
+                      min="1"
+                      max="100"
+                      required
+                      value={editorForm.questions}
+                      onChange={(event) => setEditorForm({ ...editorForm, questions: event.target.value })}
+                      className="mt-1.5 w-full rounded-xl border border-border px-3 py-2.5 text-sm font-normal text-slate-800 focus:border-blue focus:outline-none"
+                    />
+                  </label>
+                  <label className="block text-xs font-semibold text-text-heading">
+                    Durasi (menit)
+                    <input
+                      type="number"
+                      min="1"
+                      max="300"
+                      required
+                      value={editorForm.duration}
+                      onChange={(event) => setEditorForm({ ...editorForm, duration: event.target.value })}
+                      className="mt-1.5 w-full rounded-xl border border-border px-3 py-2.5 text-sm font-normal text-slate-800 focus:border-blue focus:outline-none"
+                    />
+                  </label>
+                  <label className="block text-xs font-semibold text-text-heading">
+                    Nilai lulus (%)
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      required
+                      value={editorForm.passingScore}
+                      onChange={(event) => setEditorForm({ ...editorForm, passingScore: event.target.value })}
+                      className="mt-1.5 w-full rounded-xl border border-border px-3 py-2.5 text-sm font-normal text-slate-800 focus:border-blue focus:outline-none"
+                    />
+                  </label>
+                </div>
+              )}
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" onClick={() => setEditorForm(null)}>Batal</Button>
+                <Button type="submit" variant="navy">Simpan</Button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
+      {quizItemEditor && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-navy/50 p-4"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setQuizItemEditor(null);
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="quiz-item-dialog-title"
+            className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-soft-lg"
+          >
+            <div className="mb-5 flex items-center justify-between gap-3">
+              <div>
+                <h2 id="quiz-item-dialog-title" className="text-lg font-bold text-text-heading">
+                  {quizItemEditor.itemId ? 'Ubah Soal' : 'Tambah Soal'}
+                </h2>
+                <p className="mt-1 text-xs text-slate-500">Isi pertanyaan, empat pilihan, lalu pilih jawaban yang benar.</p>
+              </div>
+              <button type="button" aria-label="Tutup editor soal" onClick={() => setQuizItemEditor(null)} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <form onSubmit={saveQuizItem} className="space-y-4">
+              <label className="block text-xs font-semibold text-text-heading">
+                Pertanyaan
+                <textarea
+                  autoFocus
+                  required
+                  maxLength={1000}
+                  rows={3}
+                  value={quizItemDraft.prompt}
+                  onChange={(event) => setQuizItemDraft({ ...quizItemDraft, prompt: event.target.value })}
+                  placeholder="Tulis pertanyaan kuis..."
+                  className="mt-1.5 w-full rounded-xl border border-border px-3 py-2.5 text-sm font-normal text-slate-800 focus:border-blue focus:outline-none"
+                />
+              </label>
+              <fieldset className="space-y-3">
+                <legend className="text-xs font-semibold text-text-heading">Pilihan jawaban</legend>
+                {(['A', 'B', 'C', 'D'] as const).map((option) => (
+                  <label key={option} className={`flex items-center gap-3 rounded-xl border p-3 ${quizItemDraft.correctOption === option ? 'border-green bg-green-tint/40' : 'border-border'}`}>
+                    <input
+                      type="radio"
+                      name="correctQuizOption"
+                      value={option}
+                      checked={quizItemDraft.correctOption === option}
+                      onChange={() => setQuizItemDraft({ ...quizItemDraft, correctOption: option })}
+                      aria-label={`Tandai pilihan ${option} sebagai jawaban benar`}
+                      className="h-4 w-4 accent-green"
+                    />
+                    <span className="w-5 shrink-0 text-xs font-bold text-slate-600">{option}.</span>
+                    <input
+                      required
+                      maxLength={500}
+                      value={quizItemDraft.options[option]}
+                      onChange={(event) => setQuizItemDraft({
+                        ...quizItemDraft,
+                        options: { ...quizItemDraft.options, [option]: event.target.value },
+                      })}
+                      placeholder={`Isi pilihan ${option}`}
+                      className="min-w-0 flex-1 bg-transparent text-sm font-normal text-slate-800 focus:outline-none"
+                    />
+                    {quizItemDraft.correctOption === option && <span className="text-[10px] font-bold text-green">JAWABAN BENAR</span>}
+                  </label>
+                ))}
+              </fieldset>
+              <label className="block text-xs font-semibold text-text-heading">
+                Penjelasan jawaban (opsional)
+                <textarea
+                  maxLength={1000}
+                  rows={2}
+                  value={quizItemDraft.explanation}
+                  onChange={(event) => setQuizItemDraft({ ...quizItemDraft, explanation: event.target.value })}
+                  placeholder="Jelaskan mengapa pilihan tersebut benar..."
+                  className="mt-1.5 w-full rounded-xl border border-border px-3 py-2.5 text-sm font-normal text-slate-800 focus:border-blue focus:outline-none"
+                />
+              </label>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" onClick={() => setQuizItemEditor(null)}>Batal</Button>
+                <Button type="submit" variant="navy">Simpan Soal</Button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
     </div>
   );
 };

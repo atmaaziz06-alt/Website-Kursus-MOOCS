@@ -26,7 +26,6 @@ import { formatIDR } from '../../config/currency';
 import { translateCategory, translateLevel } from '../../config/locale';
 import { Button, Card, Avatar, ProgressBar } from '../../components/ui';
 import { CourseCard } from '../../components/course/CourseCard';
-import { TwitterIcon, LinkedinIcon } from '../../components/ui/SocialIcons';
 import { useAuth } from '../../context/AuthContext';
 import { useCourses } from '../../context/CourseContext';
 
@@ -48,7 +47,16 @@ export const CourseDetailPage: React.FC = () => {
     'sec-1': true,
     'sec-4': true,
   });
-  const [isWishlisted, setIsWishlisted] = useState(false);
+  const [isWishlisted, setIsWishlisted] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('eduspace_saved_courses') ?? '[]') as string[];
+      return saved.includes(course.slug);
+    } catch (error) {
+      console.error('Gagal membaca kursus tersimpan', error);
+      return false;
+    }
+  });
+  const [shareStatus, setShareStatus] = useState('');
   const [enrollmentError, setEnrollmentError] = useState(() => {
     const state = location.state as { enrollmentRoleError?: boolean } | null;
     return state?.enrollmentRoleError
@@ -56,6 +64,30 @@ export const CourseDetailPage: React.FC = () => {
       : '';
   });
   const isEnrolled = enrolledCourses.some((enrollment) => enrollment.courseSlug === course.slug);
+
+  const toggleWishlist = () => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('eduspace_saved_courses') ?? '[]') as string[];
+      const updated = isWishlisted
+        ? saved.filter((savedSlug) => savedSlug !== course.slug)
+        : [...new Set([...saved, course.slug])];
+      localStorage.setItem('eduspace_saved_courses', JSON.stringify(updated));
+      setIsWishlisted(!isWishlisted);
+    } catch (error) {
+      console.error('Gagal memperbarui kursus tersimpan', error);
+      setShareStatus('Kursus tidak dapat disimpan di perangkat ini.');
+    }
+  };
+
+  const shareCourse = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setShareStatus('Tautan kursus disalin.');
+    } catch (error) {
+      console.error('Gagal menyalin tautan kursus', error);
+      setShareStatus('Tautan tidak dapat disalin. Salin alamat halaman dari bilah alamat browser.');
+    }
+  };
 
   const handleEnroll = () => {
     setEnrollmentError('');
@@ -406,29 +438,7 @@ export const CourseDetailPage: React.FC = () => {
                     {course.instructor.bio}
                   </p>
 
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      className="w-8 h-8 rounded-lg border border-border flex items-center justify-center text-slate-500 hover:text-navy hover:bg-slate-50 transition-colors"
-                      aria-label="Profil Twitter"
-                    >
-                      <TwitterIcon className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      className="w-8 h-8 rounded-lg border border-border flex items-center justify-center text-slate-500 hover:text-navy hover:bg-slate-50 transition-colors"
-                      aria-label="Profil LinkedIn"
-                    >
-                      <LinkedinIcon className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      className="w-8 h-8 rounded-lg border border-border flex items-center justify-center text-slate-500 hover:text-navy hover:bg-slate-50 transition-colors"
-                      aria-label="Situs web"
-                    >
-                      <Globe className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+                  <p className="text-xs text-slate-400">Tautan profil pengajar belum tersedia.</p>
                 </div>
               </div>
             </Card>
@@ -663,7 +673,7 @@ export const CourseDetailPage: React.FC = () => {
                 <div className="pt-6 border-t border-border mt-6 flex items-center justify-between">
                   <button
                     type="button"
-                    onClick={() => setIsWishlisted(!isWishlisted)}
+                    onClick={toggleWishlist}
                     className="flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-navy"
                   >
                     <Heart className={`w-4 h-4 ${isWishlisted ? 'fill-red text-red' : ''}`} />
@@ -672,12 +682,14 @@ export const CourseDetailPage: React.FC = () => {
 
                   <button
                     type="button"
+                    onClick={shareCourse}
                     className="flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-navy"
                   >
                     <Share2 className="w-4 h-4" />
                     <span>Bagikan</span>
                   </button>
                 </div>
+                {shareStatus && <p role="status" className="mt-2 text-right text-xs text-slate-500">{shareStatus}</p>}
               </div>
             </Card>
           </div>

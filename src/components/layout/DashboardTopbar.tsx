@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Search, Bell, Flame, Menu, Sparkles } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { Avatar } from '../ui';
@@ -14,6 +15,8 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
   titleBadge,
 }) => {
   const { user, role } = useAuth();
+  const navigate = useNavigate();
+  const [search, setSearch] = useState('');
 
   const getAvatarUrl = () => {
     if (role === 'instructor') {
@@ -23,6 +26,11 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
   };
 
   const roleLabel = role === 'participant' ? 'Peserta' : role === 'instructor' ? 'Pengajar' : 'Admin';
+  const notificationPath = role === 'participant'
+    ? '/student/notifications'
+    : role === 'instructor'
+    ? '/instructor/notifications'
+    : '/admin/notifications';
 
   const getPill = () => {
     if (titleBadge) return titleBadge;
@@ -63,10 +71,19 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
           <Menu className="w-5 h-5" />
         </button>
 
-        <div className="relative flex items-center w-full">
+        <form
+          className="relative flex items-center w-full"
+          onSubmit={(event) => {
+            event.preventDefault();
+            navigate(`/courses?q=${encodeURIComponent(search.trim())}`);
+          }}
+        >
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 pointer-events-none" />
           <input
             type="text"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            aria-label="Cari kursus"
             placeholder={
               role === 'admin'
                 ? 'Cari kursus, pengajar, peserta, atau log sistem...'
@@ -76,7 +93,7 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
             }
             className="w-full bg-slate-50 text-xs sm:text-sm text-slate-800 rounded-xl border border-border pl-10 pr-3.5 py-2 transition-all focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue/20 focus:border-blue placeholder:text-slate-400"
           />
-        </div>
+        </form>
       </div>
 
       {/* Right: Pill, Bell, Divider, User Profile */}
@@ -86,6 +103,7 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
         {/* Bell Icon */}
         <button
           type="button"
+          onClick={() => navigate(notificationPath)}
           className="relative w-9 h-9 rounded-xl border border-border flex items-center justify-center text-slate-600 hover:text-navy hover:bg-slate-50 transition-colors"
           aria-label="Notifikasi"
         >

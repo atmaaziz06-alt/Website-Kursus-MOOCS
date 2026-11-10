@@ -1,7 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, Phone, MapPin } from 'lucide-react';
-import { FacebookIcon, TwitterIcon, InstagramIcon, LinkedinIcon } from '../ui/SocialIcons';
 import { media } from '../../config/media';
 
 export const Footer: React.FC = () => {
@@ -27,18 +26,7 @@ export const Footer: React.FC = () => {
             <p className="text-sm text-slate-400 leading-relaxed mb-6">
               EduSpace adalah platform pendidikan daring yang membantu peserta mengembangkan keterampilan melalui bimbingan mentor dan sertifikasi berbasis praktik.
             </p>
-            <div className="flex items-center gap-2.5">
-              {[FacebookIcon, TwitterIcon, InstagramIcon, LinkedinIcon].map((Icon, i) => (
-                <a
-                  key={i}
-                  href="#social"
-                  className="w-9 h-9 rounded-xl bg-navy flex items-center justify-center text-slate-300 hover:text-white hover:bg-blue transition-colors"
-                  aria-label="Tautan media sosial"
-                >
-                  <Icon className="w-4 h-4" />
-                </a>
-              ))}
-            </div>
+            <p className="text-xs text-slate-400">Media sosial EduSpace belum tersedia.</p>
           </div>
 
           {/* Col 2: Quick Links */}
@@ -137,15 +125,8 @@ export const Footer: React.FC = () => {
             © 2025 EduSpace. Hak cipta dilindungi. Belajar untuk semua.
           </div>
           <div className="flex items-center gap-6">
-            <a href="#privacy" className="hover:text-white transition-colors">
-              Kebijakan Privasi
-            </a>
-            <a href="#terms" className="hover:text-white transition-colors">
-              Ketentuan Layanan
-            </a>
-            <a href="#sitemap" className="hover:text-white transition-colors">
-              Peta Situs
-            </a>
+            <span>Kebijakan privasi dan ketentuan layanan belum tersedia pada versi demo.</span>
+            <Link to="/courses" className="hover:text-white transition-colors">Jelajahi kursus</Link>
           </div>
         </div>
       </div>

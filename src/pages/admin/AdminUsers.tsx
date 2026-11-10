@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Users,
   Search,
@@ -11,9 +11,32 @@ import {
   Trash2,
   ChevronLeft,
   ChevronRight,
+  X,
 } from 'lucide-react';
 import { Card, Button, Badge, Avatar } from '../../components/ui';
 import { getUserAvatar } from '../../config/media';
+import { downloadCSV } from '../../utils/download';
+
+const loadStoredArray = <T,>(key: string, fallback: T[]): T[] => {
+  try {
+    const saved = localStorage.getItem(key);
+    if (!saved) return fallback;
+    const parsed: unknown = JSON.parse(saved);
+    if (!Array.isArray(parsed)) throw new TypeError(`Data pada ${key} bukan daftar.`);
+    return parsed as T[];
+  } catch (error) {
+    console.error(`Gagal membaca ${key}`, error);
+    return fallback;
+  }
+};
+
+const persistArray = (key: string, data: unknown): void => {
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (error) {
+    console.error(`Gagal menyimpan ${key}`, error);
+  }
+};
 
 export const AdminUsers: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'users' | 'categories'>('users');
@@ -21,9 +44,10 @@ export const AdminUsers: React.FC = () => {
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
+  const [dialog, setDialog] = useState<{ type: 'user' | 'category'; id?: string; name: string; email: string; role: string } | null>(null);
 
   // Indonesian user rows
-  const [users, setUsers] = useState([
+  const [users, setUsers] = useState(() => loadStoredArray('eduspace_admin_users', [
     {
       id: 'USR-84920',
       name: 'Dian Paramitha',
@@ -78,17 +102,17 @@ export const AdminUsers: React.FC = () => {
       status: 'Aktif',
       joined: '05 Jan 2025',
     },
-  ]);
+  ]));
 
   // Categories list for tab 2
-  const [categories, setCategories] = useState([
-    { id: 'cat-1', name: 'Teknologi & Cloud', slug: 'technology', courseCount: 24, status: 'Aktif' },
-    { id: 'cat-2', name: 'Pengembangan Perangkat Lunak', slug: 'development', courseCount: 20, status: 'Aktif' },
-    { id: 'cat-3', name: 'Bisnis & Manajemen', slug: 'business', courseCount: 18, status: 'Aktif' },
-    { id: 'cat-4', name: 'UI/UX & Desain Produk', slug: 'design', courseCount: 16, status: 'Aktif' },
-    { id: 'cat-5', name: 'Pemasaran Digital & Pertumbuhan', slug: 'marketing', courseCount: 14, status: 'Aktif' },
-    { id: 'cat-6', name: 'Pengembangan Diri & Kepemimpinan', slug: 'personal-growth', courseCount: 12, status: 'Aktif' },
-  ]);
+  const [categories, setCategories] = useState(() => loadStoredArray('eduspace_admin_categories', [
+    { id: 'cat-1', name: 'Teknologi & Cloud', slug: 'technology', courseCount: 24, count: 24, description: 'Cloud, infrastruktur, DevOps', status: 'Aktif' },
+    { id: 'cat-2', name: 'Pengembangan Perangkat Lunak', slug: 'development', courseCount: 20, count: 20, description: 'Frontend, backend, aplikasi seluler', status: 'Aktif' },
+    { id: 'cat-3', name: 'Bisnis & Manajemen', slug: 'business', courseCount: 18, count: 18, description: 'Manajemen, kepemimpinan, kewirausahaan', status: 'Aktif' },
+    { id: 'cat-4', name: 'UI/UX & Desain Produk', slug: 'design', courseCount: 16, count: 16, description: 'Desain UI/UX dan sistem desain', status: 'Aktif' },
+    { id: 'cat-5', name: 'Pemasaran Digital & Pertumbuhan', slug: 'marketing', courseCount: 14, count: 14, description: 'Iklan performa dan SEO', status: 'Aktif' },
+    { id: 'cat-6', name: 'Pengembangan Diri & Kepemimpinan', slug: 'personal-growth', courseCount: 12, count: 12, description: 'Produktivitas dan pengembangan karier', status: 'Aktif' },
+  ]));
 
   // Filtering users
   const filteredUsers = users.filter((u) => {
@@ -101,6 +125,63 @@ export const AdminUsers: React.FC = () => {
     if (statusFilter !== 'all' && u.status.toLowerCase() !== statusFilter.toLowerCase()) return false;
     return true;
   });
+  const pageSize = 6;
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / pageSize));
+  const pageUsers = filteredUsers.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const startEntry = filteredUsers.length ? (currentPage - 1) * pageSize + 1 : 0;
+  const endEntry = Math.min(currentPage * pageSize, filteredUsers.length);
+
+  useEffect(() => persistArray('eduspace_admin_users', users), [users]);
+  useEffect(() => persistArray('eduspace_admin_categories', categories), [categories]);
+  useEffect(() => setCurrentPage((page) => Math.min(page, totalPages)), [totalPages]);
+
+  const saveDialog = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!dialog || !dialog.name.trim()) return;
+    if (dialog.type === 'user') {
+      if (!dialog.email.trim()) return;
+      if (dialog.id) {
+        setUsers((current) => current.map((user) => user.id === dialog.id
+          ? { ...user, name: dialog.name.trim(), email: dialog.email.trim(), role: dialog.role }
+          : user));
+      } else {
+        setUsers((current) => [...current, {
+          id: `USR-${Date.now().toString().slice(-5)}`,
+          name: dialog.name.trim(),
+          avatarId: 'dian-paramitha',
+          email: dialog.email.trim(),
+          role: dialog.role,
+          status: 'Aktif',
+          joined: new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).format(new Date()),
+        }]);
+      }
+    } else {
+      const slug = dialog.name.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      if (dialog.id) {
+        setCategories((current) => current.map((category) => category.id === dialog.id
+          ? { ...category, name: dialog.name.trim(), slug }
+          : category));
+      } else {
+        setCategories((current) => [...current, {
+          id: `cat-${Date.now()}`,
+          name: dialog.name.trim(),
+          slug,
+          courseCount: 0,
+          count: 0,
+          description: '',
+          status: 'Aktif',
+        }]);
+      }
+    }
+    setDialog(null);
+  };
+
+  const exportUsers = () => {
+    downloadCSV('pengguna-eduspace.csv', [
+      ['ID', 'Nama', 'Email', 'Peran', 'Status', 'Tanggal Bergabung'],
+      ...filteredUsers.map((user) => [user.id, user.name, user.email, user.role, user.status, user.joined]),
+    ]);
+  };
 
   const getRoleBadgeVariant = (r: string) => {
     if (r === 'Admin') return 'navy';
@@ -175,7 +256,7 @@ export const AdminUsers: React.FC = () => {
                 <input
                   type="text"
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                   placeholder="Cari nama, email, atau ID pengguna..."
                   className="w-full bg-slate-50 border border-border text-xs rounded-xl pl-9 pr-3.5 py-2.5 focus:outline-none focus:border-blue"
                 />
@@ -183,7 +264,7 @@ export const AdminUsers: React.FC = () => {
 
               <select
                 value={roleFilter}
-                onChange={(e) => setRoleFilter(e.target.value)}
+                onChange={(e) => { setRoleFilter(e.target.value); setCurrentPage(1); }}
                 className="bg-slate-50 border border-border text-xs font-semibold rounded-xl px-3 py-2.5 text-slate-700 focus:outline-none focus:border-blue cursor-pointer w-full sm:w-auto"
               >
                 <option value="all">Semua Peran</option>
@@ -194,7 +275,7 @@ export const AdminUsers: React.FC = () => {
 
               <select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
+                onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
                 className="bg-slate-50 border border-border text-xs font-semibold rounded-xl px-3 py-2.5 text-slate-700 focus:outline-none focus:border-blue cursor-pointer w-full sm:w-auto"
               >
                 <option value="all">Semua Status</option>
@@ -204,10 +285,15 @@ export const AdminUsers: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-2.5">
-              <Button variant="outline" size="sm" leftIcon={<Download className="w-3.5 h-3.5" />}>
+              <Button variant="outline" size="sm" onClick={exportUsers} leftIcon={<Download className="w-3.5 h-3.5" />}>
                 Ekspor CSV
               </Button>
-              <Button variant="orange" size="sm" leftIcon={<Plus className="w-3.5 h-3.5" />}>
+              <Button
+                variant="orange"
+                size="sm"
+                onClick={() => setDialog({ type: 'user', name: '', email: '', role: 'Peserta' })}
+                leftIcon={<Plus className="w-3.5 h-3.5" />}
+              >
                 + Tambah Pengguna Baru
               </Button>
             </div>
@@ -227,7 +313,10 @@ export const AdminUsers: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
-                {filteredUsers.map((u) => (
+                {pageUsers.length === 0 && (
+                  <tr><td colSpan={6} className="py-8 text-center text-slate-500">Tidak ada pengguna yang cocok dengan filter.</td></tr>
+                )}
+                {pageUsers.map((u) => (
                   <tr key={u.id} className="hover:bg-slate-50 transition-colors">
                     <td className="py-3.5">
                       <div className="flex items-center gap-3">
@@ -245,18 +334,32 @@ export const AdminUsers: React.FC = () => {
                       </Badge>
                     </td>
                     <td className="py-3.5">
-                      <span className="inline-flex items-center gap-1 text-green font-bold">
-                        <span className="w-1.5 h-1.5 rounded-full bg-green" />
+                      <span className={`inline-flex items-center gap-1 font-bold ${u.status === 'Aktif' ? 'text-green' : 'text-slate-400'}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${u.status === 'Aktif' ? 'bg-green' : 'bg-slate-400'}`} />
                         <span>{u.status}</span>
                       </span>
                     </td>
                     <td className="py-3.5 text-slate-500">{u.joined}</td>
                     <td className="py-3.5 text-right">
                       <div className="inline-flex items-center gap-2">
-                        <button type="button" className="text-slate-400 hover:text-blue p-1" title="Edit Pengguna">
+                        <button
+                          type="button"
+                          className="text-slate-400 hover:text-blue p-1"
+                          title="Edit Pengguna"
+                          aria-label={`Edit ${u.name}`}
+                          onClick={() => setDialog({ type: 'user', id: u.id, name: u.name, email: u.email, role: u.role })}
+                        >
                           <Edit className="w-3.5 h-3.5" />
                         </button>
-                        <button type="button" className="text-slate-400 hover:text-navy p-1" title="Opsi lainnya">
+                        <button
+                          type="button"
+                          className="text-slate-400 hover:text-navy p-1"
+                          title="Ubah status akun"
+                          aria-label={`Ubah status ${u.name}`}
+                          onClick={() => setUsers((current) => current.map((user) => user.id === u.id
+                            ? { ...user, status: user.status === 'Aktif' ? 'Nonaktif' : 'Aktif' }
+                            : user))}
+                        >
                           <MoreVertical className="w-3.5 h-3.5" />
                         </button>
                       </div>
@@ -269,15 +372,13 @@ export const AdminUsers: React.FC = () => {
 
           {/* Pagination */}
           <div className="pt-4 border-t border-border flex items-center justify-between text-xs text-slate-500">
-            <span>Menampilkan 1-6 dari 24,850 pengguna</span>
+            <span>Menampilkan {startEntry}-{endEntry} dari {filteredUsers.length} pengguna</span>
             <div className="flex items-center gap-1.5">
-              <button type="button" className="p-1.5 rounded-lg border border-border bg-white text-slate-600 disabled:opacity-40" disabled>
+              <button type="button" onClick={() => setCurrentPage((page) => Math.max(1, page - 1))} className="p-1.5 rounded-lg border border-border bg-white text-slate-600 disabled:opacity-40" disabled={currentPage === 1}>
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              <button type="button" className="w-8 h-8 rounded-lg bg-navy text-white font-bold">1</button>
-              <button type="button" className="w-8 h-8 rounded-lg border border-border bg-white text-slate-600">2</button>
-              <button type="button" className="w-8 h-8 rounded-lg border border-border bg-white text-slate-600">3</button>
-              <button type="button" className="p-1.5 rounded-lg border border-border bg-white text-slate-600">
+              <span className="px-2 font-bold text-navy">{currentPage} / {totalPages}</span>
+              <button type="button" onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))} className="p-1.5 rounded-lg border border-border bg-white text-slate-600 disabled:opacity-40" disabled={currentPage === totalPages}>
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
@@ -293,7 +394,12 @@ export const AdminUsers: React.FC = () => {
               </h3>
               <p className="text-xs text-slate-500">Atur hierarki topik untuk katalog kursus global</p>
             </div>
-            <Button variant="orange" size="sm" leftIcon={<Plus className="w-3.5 h-3.5" />}>
+            <Button
+              variant="orange"
+              size="sm"
+              onClick={() => setDialog({ type: 'category', name: '', email: '', role: '' })}
+              leftIcon={<Plus className="w-3.5 h-3.5" />}
+            >
               + Tambah Kategori
             </Button>
           </div>
@@ -322,10 +428,24 @@ export const AdminUsers: React.FC = () => {
                     </td>
                     <td className="py-3.5 text-right">
                       <div className="inline-flex items-center gap-2">
-                        <button type="button" className="text-slate-400 hover:text-blue p-1">
+                        <button
+                          type="button"
+                          aria-label={`Edit kategori ${cat.name}`}
+                          onClick={() => setDialog({ type: 'category', id: cat.id, name: cat.name, email: '', role: '' })}
+                          className="text-slate-400 hover:text-blue p-1"
+                        >
                           <Edit className="w-3.5 h-3.5" />
                         </button>
-                        <button type="button" className="text-slate-400 hover:text-red p-1">
+                        <button
+                          type="button"
+                          aria-label={`Hapus kategori ${cat.name}`}
+                          onClick={() => {
+                            if (window.confirm(`Hapus kategori "${cat.name}"?`)) {
+                              setCategories((current) => current.filter((category) => category.id !== cat.id));
+                            }
+                          }}
+                          className="text-slate-400 hover:text-red p-1"
+                        >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
@@ -336,6 +456,44 @@ export const AdminUsers: React.FC = () => {
             </table>
           </div>
         </Card>
+      )}
+      {dialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/50 p-4" onMouseDown={(event) => {
+          if (event.target === event.currentTarget) setDialog(null);
+        }}>
+          <section role="dialog" aria-modal="true" aria-labelledby="admin-edit-title" className="w-full max-w-md rounded-2xl bg-white p-6 shadow-soft-lg">
+            <div className="mb-5 flex items-center justify-between">
+              <h2 id="admin-edit-title" className="text-lg font-bold text-text-heading">
+                {dialog.type === 'user' ? dialog.id ? 'Ubah Pengguna' : 'Tambah Pengguna' : dialog.id ? 'Ubah Kategori' : 'Tambah Kategori'}
+              </h2>
+              <button type="button" aria-label="Tutup formulir" onClick={() => setDialog(null)}><X className="h-5 w-5 text-slate-400" /></button>
+            </div>
+            <form onSubmit={saveDialog} className="space-y-4">
+              <label className="block text-xs font-semibold text-text-heading">
+                {dialog.type === 'user' ? 'Nama lengkap' : 'Nama kategori'}
+                <input required maxLength={100} value={dialog.name} onChange={(event) => setDialog({ ...dialog, name: event.target.value })} className="mt-1.5 w-full rounded-xl border border-border px-3 py-2.5 text-sm font-normal focus:border-blue focus:outline-none" />
+              </label>
+              {dialog.type === 'user' && (
+                <>
+                  <label className="block text-xs font-semibold text-text-heading">
+                    Alamat email
+                    <input type="email" required value={dialog.email} onChange={(event) => setDialog({ ...dialog, email: event.target.value })} className="mt-1.5 w-full rounded-xl border border-border px-3 py-2.5 text-sm font-normal focus:border-blue focus:outline-none" />
+                  </label>
+                  <label className="block text-xs font-semibold text-text-heading">
+                    Peran
+                    <select value={dialog.role} onChange={(event) => setDialog({ ...dialog, role: event.target.value })} className="mt-1.5 w-full rounded-xl border border-border bg-white px-3 py-2.5 text-sm font-normal focus:border-blue focus:outline-none">
+                      <option>Peserta</option><option>Instruktur</option><option>Admin</option>
+                    </select>
+                  </label>
+                </>
+              )}
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => setDialog(null)}>Batal</Button>
+                <Button type="submit" variant="navy">Simpan</Button>
+              </div>
+            </form>
+          </section>
+        </div>
       )}
     </div>
   );
