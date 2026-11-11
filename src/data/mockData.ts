@@ -392,43 +392,7 @@ export const mockCourses: Course[] = [
   },
   // Generate additional courses to reach 48 total courses to fulfill category counts:
   // Technology (24), Business (18), Design (16), Development (20), Marketing (14), Personal Growth (12)
-  ...Array.from({ length: 38 }).map((_, idx) => {
-    const categories: Course['category'][] = [
-      'Technology', 'Business', 'Design', 'Development', 'Marketing', 'Personal Growth'
-    ];
-    const levels: Course['level'][] = ['Beginner', 'Intermediate', 'Advanced'];
-    const cat = categories[idx % categories.length];
-    const lvl = levels[idx % 3];
-    const courseNum = idx + 11;
-    const isFree = idx % 9 === 0;
-    const price = isFree ? 0 : (29 + (idx % 7) * 10) * 10000;
-    const origPrice = isFree ? 0 : price + 400000;
-
-    return {
-      id: `course-gen-${courseNum}`,
-      slug: `course-mastery-${courseNum}`,
-      title: `${{ Technology: 'Teknologi', Business: 'Bisnis', Design: 'Desain', Development: 'Pemrograman', Marketing: 'Pemasaran', 'Personal Growth': 'Pengembangan Diri', 'Data & AI': 'Data & AI' }[cat]}: Seri Keahlian & Kepemimpinan Jilid ${courseNum}`,
-      subtitle: `Kuasai keterampilan ${({ Technology: 'teknologi', Business: 'bisnis', Design: 'desain', Development: 'pemrograman', Marketing: 'pemasaran', 'Personal Growth': 'pengembangan diri', 'Data & AI': 'data dan AI' })[cat]}, alur kerja industri, dan penerapannya melalui proyek tingkat ${({ Beginner: 'pemula', Intermediate: 'menengah', Advanced: 'lanjutan', 'All Levels': 'semua tingkat' })[lvl]}.`,
-      category: cat,
-      level: lvl,
-      instructor: mockInstructors[idx % 2 === 0 ? 'john-smith' : 'marcus-vance'],
-      price: price,
-      originalPrice: origPrice,
-      rating: +(4.5 + (idx % 5) * 0.1).toFixed(1),
-      reviewCount: 50 + (idx * 17) % 300,
-      enrolledCount: 400 + (idx * 63) % 1500,
-      lessonsCount: 20 + (idx % 18),
-      totalDuration: `${12 + (idx % 14)}h ${(idx * 7) % 60}m`,
-      isPopular: idx % 4 === 0,
-      isFeatured: false,
-      language: 'Bahasa Indonesia',
-      lastUpdated: '2025',
-      description: `Program pelatihan komprehensif di bidang ${({ Technology: 'teknologi', Business: 'bisnis', Design: 'desain', Development: 'pemrograman', Marketing: 'pemasaran', 'Personal Growth': 'pengembangan diri', 'Data & AI': 'data dan AI' })[cat]} yang mencakup konsep dasar dan menengah.`,
-      learningOutcomes: ['Memperdalam keahlian di bidang ini', 'Menyelesaikan proyek untuk portofolio', 'Memperoleh sertifikat yang diakui industri'],
-      requirements: ['Memahami dasar penggunaan komputer.'],
-      sections: [],
-    };
-  })
+  
 ];
 
 export const mockQuizReactHooks: QuizData = {
