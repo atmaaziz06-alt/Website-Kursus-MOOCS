@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   BookOpen,
   Award,
@@ -8,54 +8,63 @@ import {
   Video,
   ArrowRight,
   Bookmark,
-  Calendar,
-  AlertCircle,
-  CheckCircle2,
   Bell,
   Download,
-  RotateCcw,
-  Sparkles,
   Flame,
 } from 'lucide-react';
 import { ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { Card, StatCard, Badge, Button, ProgressBar, Avatar, EmptyState } from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
 import { useCourses } from '../../context/CourseContext';
-import { media, getCourseMedia, getInstructorPhoto } from '../../config/media';
-import { mockCourses } from '../../data/mockData';
+import { media, getCourseMedia } from '../../config/media';
 import { translateCategory } from '../../config/locale';
 import { useNotifications } from '../../context/NotificationContext';
 import { downloadPrintableCertificate } from '../../utils/download';
+import { getErrorMessage } from '../../lib/errors';
+import { getStudentDashboardAnalytics, type StudentDashboardAnalytics } from '../../services/dashboardService';
 
 export const StudentDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { enrolledCourses, isDevEmptyState, toggleDevEmptyState } = useCourses();
+  const { enrolledCourses, savedCourseSlugs, toggleSavedCourse, isLoading, error: coursesError } = useCourses();
   const { notifications, isRead, markAsRead } = useNotifications();
 
   const [courseFilter, setCourseFilter] = useState<'all' | 'in-progress' | 'completed'>('all');
-  const [bookmarkedCourses, setBookmarkedCourses] = useState<string[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem('eduspace_saved_courses') ?? '[]') as string[];
-    } catch (error) {
-      console.error('Gagal membaca kursus tersimpan', error);
-      return [];
-    }
+  const [bookmarkError, setBookmarkError] = useState('');
+  const [dashboardAnalytics, setDashboardAnalytics] = useState<StudentDashboardAnalytics>({
+    averageQuizScore: null,
+    totalStudyHours: 0,
+    weeklyStudyHours: 0,
+    streakDays: 0,
+    studyByCategory: [],
   });
-  const [showAssignmentDetails, setShowAssignmentDetails] = useState(false);
+  const [dashboardAnalyticsError, setDashboardAnalyticsError] = useState('');
+  const [dashboardAnalyticsLoading, setDashboardAnalyticsLoading] = useState(true);
+  const courseIdsKey = enrolledCourses.map((course) => course.courseId).sort().join(',');
 
-  const toggleBookmark = (courseSlug: string) => {
-    setBookmarkedCourses((current) => {
-      const updated = current.includes(courseSlug)
-        ? current.filter((slug) => slug !== courseSlug)
-        : [...current, courseSlug];
-      try {
-        localStorage.setItem('eduspace_saved_courses', JSON.stringify(updated));
-      } catch (error) {
-        console.error('Gagal menyimpan kursus tersimpan', error);
+  useEffect(() => {
+    if (!user?.id) return;
+    let active = true;
+    void getStudentDashboardAnalytics(user.id).then((result) => {
+      if (active) {
+        setDashboardAnalytics(result);
+        setDashboardAnalyticsError('');
       }
-      return updated;
+    }).catch((error: unknown) => {
+      if (active) setDashboardAnalyticsError(getErrorMessage(error));
+    }).finally(() => {
+      if (active) setDashboardAnalyticsLoading(false);
     });
+    return () => { active = false; };
+  }, [courseIdsKey, user?.id]);
+
+  const toggleBookmark = async (courseSlug: string) => {
+    setBookmarkError('');
+    try {
+      await toggleSavedCourse(courseSlug);
+    } catch (error) {
+      setBookmarkError(error instanceof Error ? error.message : 'Kursus gagal disimpan.');
+    }
   };
 
   const inProgressCourses = enrolledCourses.filter((c) => !c.isCompleted);
@@ -67,31 +76,25 @@ export const StudentDashboard: React.FC = () => {
     return true;
   });
 
-  // Recharts study breakdown donut data
-  const studyData = [
-    { name: 'Web Dev', value: 8.0, color: '#2F4BDB' },
-    { name: 'UI/UX', value: 3.2, color: '#E08A00' },
-    { name: 'Data Prep', value: 1.2, color: '#16A34A' },
-  ];
+  const studyData = dashboardAnalytics.studyByCategory.map((category) => ({
+    name: category.name,
+    value: category.hours,
+    color: category.color,
+  }));
+  const formatHours = (hours: number) => `${hours.toLocaleString('id-ID', { maximumFractionDigits: 1 })} jam`;
 
   return (
     <div className="max-w-[1200px] mx-auto space-y-8">
-      {/* Dev Toggle for Empty State */}
-      <div className="flex items-center justify-between p-3 rounded-xl bg-white border border-border text-xs">
-        <span className="font-semibold text-slate-600">
-          Mode Tampilan: <strong className="text-navy">{isDevEmptyState ? 'Tampilan Kosong Aktif' : 'Tampilan Normal'}</strong>
-        </span>
-        <button
-          type="button"
-          onClick={toggleDevEmptyState}
-          className="text-xs font-bold text-blue hover:text-navy underline flex items-center gap-1"
-        >
-          <RotateCcw className="w-3.5 h-3.5" />
-          <span>Ubah Tampilan Kosong</span>
-        </button>
-      </div>
+      {coursesError && (
+        <p role="alert" className="rounded-xl border border-red/20 bg-red/5 px-4 py-3 text-sm text-red">
+          Gagal memuat data kursus: {coursesError}
+        </p>
+      )}
+      {bookmarkError && <p role="alert" className="rounded-xl border border-red/20 bg-red/5 px-4 py-3 text-sm text-red">{bookmarkError}</p>}
 
-      {isDevEmptyState ? (
+      {isLoading ? (
+        <Card className="p-12 text-center text-sm text-slate-500">Memuat data kursus...</Card>
+      ) : enrolledCourses.length === 0 ? (
         <Card className="p-12">
           <EmptyState
             title="Kamu belum mengikuti kursus apa pun"
@@ -108,21 +111,28 @@ export const StudentDashboard: React.FC = () => {
         </Card>
       ) : (
         <>
+          {dashboardAnalyticsError && (
+            <p role="alert" className="rounded-xl border border-red/20 bg-red/5 px-4 py-3 text-sm text-red">
+              Gagal memuat statistik belajar: {dashboardAnalyticsError}
+            </p>
+          )}
           {/* 1. WELCOME BANNER (Blue gradient rounded-3xl) */}
           <div className="relative bg-gradient-to-r from-blue via-[#263ec2] to-navy rounded-3xl p-6 sm:p-10 text-white shadow-soft-lg overflow-hidden">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
               {/* Left Column (8 cols) */}
               <div className="lg:col-span-8 z-10">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 text-white border border-white/20 text-[10px] font-bold uppercase tracking-wider mb-4">
-                  <span>DASHBOR PESERTA • SEMESTER 2025</span>
+                  <span>DASHBOR PESERTA</span>
                 </div>
 
                 <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight mb-2">
-                  Selamat datang kembali, {user?.name?.split(' ')[0] || 'Dian'}! 👋
+                  Selamat datang kembali, {user?.name?.split(' ')[0] || 'Peserta'}! 👋
                 </h1>
 
                 <p className="text-slate-200 text-xs sm:text-sm leading-relaxed mb-6 max-w-xl">
-                  Kamu telah mencapai 72% dari target belajar mingguan. Pertahankan semangatmu dan raih sertifikasi berikutnya!
+                  {dashboardAnalyticsLoading
+                    ? 'Memuat ringkasan aktivitas belajarmu...'
+                    : `Kamu memiliki ${inProgressCourses.length} kursus yang sedang berlangsung dan telah belajar ${formatHours(dashboardAnalytics.weeklyStudyHours)} minggu ini.`}
                 </p>
 
                 {/* Inner Translucent Strip */}
@@ -132,12 +142,18 @@ export const StudentDashboard: React.FC = () => {
                       <Video className="w-4 h-4 text-white" />
                     </div>
                     <span className="text-xs font-semibold text-white">
-                      Sesi langsung berikutnya: <strong>Diskusi Arsitektur Web</strong> (Hari ini pukul 19.30 WIB)
+                      {dashboardAnalytics.streakDays > 0
+                        ? <>Konsistensi belajarmu: <strong>{dashboardAnalytics.streakDays} hari berturut-turut</strong></>
+                        : <>Belum ada aktivitas belajar beruntun. Lanjutkan materi untuk membangun konsistensi.</>}
                     </span>
                   </div>
                   <button
                     type="button"
-                    onClick={() => navigate('/learn/web-development-bootcamp-2025/les-15')}
+                    onClick={() => {
+                      const nextCourse = inProgressCourses[0];
+                      if (nextCourse?.currentLessonId) navigate(`/learn/${nextCourse.courseSlug}/${nextCourse.currentLessonId}`);
+                      else navigate('/courses');
+                    }}
                     className="text-xs font-bold text-orange hover:text-white transition-colors flex items-center gap-1 shrink-0"
                   >
                     <span>Gabung Sesi</span>
@@ -157,7 +173,7 @@ export const StudentDashboard: React.FC = () => {
                   {/* Floating Streak Card */}
                   <div className="absolute bottom-2 right-2 bg-white text-navy px-3 py-1.5 rounded-xl shadow-md border border-border flex items-center gap-1.5">
                     <Flame className="w-4 h-4 text-orange fill-orange" />
-                    <span className="text-xs font-extrabold">14 Hari Berturut-turut</span>
+                    <span className="text-xs font-extrabold">{dashboardAnalytics.streakDays} Hari Berturut-turut</span>
                   </div>
                 </div>
               </div>
@@ -168,30 +184,29 @@ export const StudentDashboard: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             <StatCard
               label="Kursus Diikuti"
-              value="6 Kursus"
-              subtext="2 sedang berlangsung"
+              value={`${enrolledCourses.length} Kursus`}
+              subtext={`${inProgressCourses.length} sedang berlangsung`}
               icon={<BookOpen className="w-5 h-5" />}
               iconVariant="soft-blue"
             />
             <StatCard
               label="Kursus Selesai"
-              value="3 Kursus"
-              subtext="3 sertifikat terverifikasi"
+              value={`${completedCourses.length} Kursus`}
+              subtext={`${completedCourses.length} kursus selesai`}
               icon={<Award className="w-5 h-5" />}
               iconVariant="green"
             />
             <StatCard
               label="Rata-rata Nilai Kuis"
-              value="92.4%"
-              subtext="Nilai rata-rata"
-              trend={{ value: '+4,2% dari bulan lalu', isPositive: true }}
+              value={dashboardAnalyticsLoading ? '...' : dashboardAnalytics.averageQuizScore === null ? '—' : `${dashboardAnalytics.averageQuizScore}%`}
+              subtext="Rata-rata percobaan kuis terkirim"
               icon={<TrendingUp className="w-5 h-5" />}
               iconVariant="orange"
             />
             <StatCard
               label="Jam Belajar"
-              value="48,5 jam"
-              subtext="12,4 jam minggu ini"
+              value={dashboardAnalyticsLoading ? '...' : formatHours(dashboardAnalytics.totalStudyHours)}
+              subtext={dashboardAnalyticsLoading ? 'Memuat...' : `${formatHours(dashboardAnalytics.weeklyStudyHours)} minggu ini`}
               icon={<Clock className="w-5 h-5" />}
               iconVariant="navy"
             />
@@ -207,7 +222,7 @@ export const StudentDashboard: React.FC = () => {
                     Kursus yang Saya Ikuti
                   </h2>
                   <span className="px-2.5 py-0.5 rounded-full bg-soft-blue text-blue text-xs font-bold">
-                    Total 6
+                    Total {enrolledCourses.length}
                   </span>
                 </div>
 
@@ -252,11 +267,7 @@ export const StudentDashboard: React.FC = () => {
               {/* Course Horizontal Cards */}
               <div className="space-y-4">
                 {displayedCourses.map((item) => {
-                  const courseDetail = mockCourses.find((c) => c.slug === item.courseSlug);
-                  const courseMedia = getCourseMedia(item.courseSlug);
-                  const instructorPhoto = getInstructorPhoto(
-                    courseDetail?.instructor.id || 'john-smith'
-                  );
+                  const thumbnail = item.thumbnailUrl || getCourseMedia(item.courseSlug).thumbnail;
 
                   return (
                     <Card
@@ -266,13 +277,13 @@ export const StudentDashboard: React.FC = () => {
                       {/* Image Left with Category Tag */}
                       <div className="relative w-full sm:w-44 h-32 sm:h-auto rounded-xl overflow-hidden shrink-0 bg-slate-100">
                         <img
-                          src={courseMedia.thumbnail}
-                          alt={courseDetail?.title || item.courseSlug}
+                          src={thumbnail}
+                          alt={item.courseTitle}
                           className="w-full h-full object-cover"
                         />
                         <div className="absolute top-2 left-2">
                           <Badge variant="technology" size="xs">
-                            {translateCategory(courseDetail?.category || 'Development')}
+                            {translateCategory(item.category)}
                           </Badge>
                         </div>
                       </div>
@@ -284,27 +295,27 @@ export const StudentDashboard: React.FC = () => {
                           <div className="flex items-center justify-between mb-1.5">
                             <div className="flex items-center gap-2">
                               <Avatar
-                                src={instructorPhoto}
-                                name={courseDetail?.instructor.name || 'John Smith'}
+                                src={item.instructorAvatarUrl}
+                                name={item.instructorName}
                                 size="xs"
                               />
                               <span className="text-xs font-semibold text-slate-500">
-                                {courseDetail?.instructor.name || 'John Smith'}
+                                {item.instructorName}
                               </span>
                             </div>
                             <button
                               type="button"
-                              onClick={() => toggleBookmark(item.courseSlug)}
-                              className={bookmarkedCourses.includes(item.courseSlug) ? 'text-orange' : 'text-slate-400 hover:text-orange'}
-                              aria-label={bookmarkedCourses.includes(item.courseSlug) ? 'Hapus kursus tersimpan' : 'Simpan kursus'}
+                              onClick={() => void toggleBookmark(item.courseSlug)}
+                              className={savedCourseSlugs.includes(item.courseSlug) ? 'text-orange' : 'text-slate-400 hover:text-orange'}
+                              aria-label={savedCourseSlugs.includes(item.courseSlug) ? 'Hapus kursus tersimpan' : 'Simpan kursus'}
                             >
-                              <Bookmark className={`w-4 h-4 ${bookmarkedCourses.includes(item.courseSlug) ? 'fill-orange' : ''}`} />
+                              <Bookmark className={`w-4 h-4 ${savedCourseSlugs.includes(item.courseSlug) ? 'fill-orange' : ''}`} />
                             </button>
                           </div>
 
                           {/* Bold Title */}
                           <h3 className="text-sm sm:text-base font-bold text-text-heading mb-1 line-clamp-1">
-                            {courseDetail?.title}
+                            {item.courseTitle}
                           </h3>
 
                           {/* Current Module line in blue */}
@@ -346,7 +357,7 @@ export const StudentDashboard: React.FC = () => {
                               <Button
                                 variant="navy"
                                 size="sm"
-                                onClick={() => downloadPrintableCertificate(user?.name || 'Peserta EduSpace', courseDetail?.title || item.courseSlug)}
+                                onClick={() => downloadPrintableCertificate(user?.name || 'Peserta EduSpace', item.courseTitle)}
                                 leftIcon={<Download className="w-3.5 h-3.5" />}
                               >
                                 Unduh Sertifikat
@@ -375,47 +386,33 @@ export const StudentDashboard: React.FC = () => {
               {/* Card 1: Deadlines & Quizzes */}
               <Card className="p-6">
                 <div className="flex items-center justify-between mb-4 pb-2 border-b border-border">
-                  <h3 className="text-sm font-bold text-text-heading">Tenggat & Kuis</h3>
-                  <Calendar className="w-4 h-4 text-slate-400" />
+                  <h3 className="text-sm font-bold text-text-heading">Lanjutkan Belajar</h3>
+                  <BookOpen className="w-4 h-4 text-slate-400" />
                 </div>
                 <div className="space-y-4">
-                  {/* Quiz item with red deadline & orange Start Quiz */}
-                  <div className="p-3.5 rounded-xl border border-red/20 bg-red-tint/50">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-bold text-red">Besok, 23.59</span>
-                      <Badge variant="orange" size="xs">Kuis Modul 4</Badge>
+                  {inProgressCourses.slice(0, 3).map((course) => (
+                    <div key={course.courseId} className="rounded-xl border border-border bg-slate-50/70 p-3.5">
+                      <p className="text-xs font-bold text-text-heading">{course.courseTitle}</p>
+                      <p className="mt-1 truncate text-xs text-slate-500">{course.currentLessonTitle}</p>
+                      <Button
+                        variant="orange"
+                        size="sm"
+                        fullWidth
+                        className="mt-3"
+                        onClick={() => {
+                          if (course.currentLessonId) navigate(`/learn/${course.courseSlug}/${course.currentLessonId}`);
+                          else navigate(`/courses/${course.courseSlug}`);
+                        }}
+                      >
+                        Lanjutkan materi
+                      </Button>
                     </div>
-                    <h4 className="text-xs font-bold text-text-heading mb-2">
-                      React Hooks & State Management
-                    </h4>
-                    <Button
-                      variant="orange"
-                      size="sm"
-                      fullWidth
-                      onClick={() => navigate('/quiz/quiz-react-hooks')}
-                    >
-                      Mulai Kuis
-                    </Button>
-                  </div>
-
-                  {/* Assignment item with Details */}
-                  <div className="p-3.5 rounded-xl border border-border bg-slate-50/70">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs text-slate-500 font-semibold">Jumat, 18.00</span>
-                      <span className="text-[10px] uppercase font-bold text-slate-400">Tugas</span>
-                    </div>
-                    <h4 className="text-xs font-bold text-text-heading mb-2">
-                      Proyek Akhir REST API Blog Full-Stack
-                    </h4>
-                    <Button variant="outline" size="sm" fullWidth onClick={() => setShowAssignmentDetails((open) => !open)}>
-                      {showAssignmentDetails ? 'Tutup Rincian' : 'Rincian'}
-                    </Button>
-                    {showAssignmentDetails && (
-                      <p className="mt-3 rounded-lg bg-white p-3 text-xs leading-relaxed text-slate-600">
-                        Buat REST API blog dengan operasi CRUD, validasi input, dan dokumentasi endpoint. Pengumpulan tugas belum tersedia pada versi demo ini.
-                      </p>
-                    )}
-                  </div>
+                  ))}
+                  {!inProgressCourses.length && (
+                    <p className="rounded-xl bg-slate-50 p-4 text-xs text-slate-500">
+                      Semua kursusmu telah selesai. Jelajahi kursus lain untuk melanjutkan belajar.
+                    </p>
+                  )}
                 </div>
               </Card>
 
@@ -453,55 +450,44 @@ export const StudentDashboard: React.FC = () => {
               <Card className="p-6">
                 <div className="flex items-center justify-between mb-3 pb-2 border-b border-border">
                   <h3 className="text-sm font-bold text-text-heading">Rincian Belajar Mingguan</h3>
-                  <span className="text-xs text-slate-400 font-semibold">Target: 15 jam</span>
+                  <span className="text-xs text-slate-400 font-semibold">{formatHours(dashboardAnalytics.weeklyStudyHours)}</span>
                 </div>
 
                 <div className="relative h-44 w-full flex items-center justify-center">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={studyData}
-                        innerRadius={50}
-                        outerRadius={70}
-                        paddingAngle={4}
-                        dataKey="value"
-                      >
-                        {studyData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
+                  {studyData.length ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={studyData} innerRadius={50} outerRadius={70} paddingAngle={4} dataKey="value">
+                          {studyData.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
+                        </Pie>
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <p className="px-8 text-center text-xs text-slate-400">
+                      Belum ada materi yang diselesaikan minggu ini.
+                    </p>
+                  )}
                   {/* Center Text inside Donut */}
-                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                    <span className="text-base font-extrabold text-text-heading">12.4h</span>
+                  {studyData.length > 0 && <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <span className="text-base font-extrabold text-text-heading">
+                      {dashboardAnalytics.weeklyStudyHours.toLocaleString('id-ID', { maximumFractionDigits: 1 })}j
+                    </span>
                     <span className="text-[10px] text-slate-400 uppercase font-semibold">Tercatat</span>
-                  </div>
+                  </div>}
                 </div>
 
-                {/* Legend: Web Dev 8.0h / UI/UX 3.2h / Data Prep 1.2h */}
-                <div className="grid grid-cols-3 gap-2 text-center pt-3 border-t border-border">
-                  <div>
-                    <div className="flex items-center justify-center gap-1.5 mb-0.5">
-                      <span className="w-2 h-2 rounded-full bg-blue" />
-                      <span className="text-[11px] font-bold text-slate-700">Pengembangan Web</span>
+                <div className="space-y-2 pt-3 border-t border-border">
+                  {studyData.length ? studyData.map((category) => (
+                    <div key={category.name} className="flex items-center justify-between gap-2 text-xs">
+                      <span className="flex min-w-0 items-center gap-2 text-slate-700">
+                        <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: category.color }} />
+                        <span className="truncate">{category.name}</span>
+                      </span>
+                      <span className="shrink-0 text-slate-500">{formatHours(category.value)}</span>
                     </div>
-                    <span className="text-xs text-slate-500">8,0 jam</span>
-                  </div>
-                  <div>
-                    <div className="flex items-center justify-center gap-1.5 mb-0.5">
-                      <span className="w-2 h-2 rounded-full bg-orange" />
-                      <span className="text-[11px] font-bold text-slate-700">UI/UX</span>
-                    </div>
-                    <span className="text-xs text-slate-500">3,2 jam</span>
-                  </div>
-                  <div>
-                    <div className="flex items-center justify-center gap-1.5 mb-0.5">
-                      <span className="w-2 h-2 rounded-full bg-green" />
-                      <span className="text-[11px] font-bold text-slate-700">Persiapan Data</span>
-                    </div>
-                    <span className="text-xs text-slate-500">1,2 jam</span>
-                  </div>
+                  )) : (
+                    <p className="text-center text-xs text-slate-400">Rincian kategori akan muncul setelah materi selesai.</p>
+                  )}
                 </div>
               </Card>
             </div>

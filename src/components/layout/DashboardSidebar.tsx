@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -12,7 +12,7 @@ import {
   FolderTree,
   FileCheck2,
   PlusCircle,
-  BarChart3,
+  MessageCircle,
   X,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -30,6 +30,21 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ isOpen, onCl
   const navigate = useNavigate();
   const { role, logout } = useAuth();
   const { unreadCount } = useNotifications();
+  const [logoutError, setLogoutError] = useState('');
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    setLogoutError('');
+    setIsLoggingOut(true);
+    try {
+      await logout();
+      navigate('/login');
+    } catch (error) {
+      setLogoutError(error instanceof Error ? error.message : 'Tidak dapat keluar dari akun.');
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
 
   const getNavItems = (currentRole: UserRole) => {
     switch (currentRole) {
@@ -59,6 +74,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ isOpen, onCl
           { label: 'Kursus Saya', path: '/student/courses', icon: <BookOpen className="w-4 h-4" /> },
           { label: 'Jelajahi Kursus', path: '/courses', icon: <Compass className="w-4 h-4" /> },
           { label: 'Hasil Kuis', path: '/student/quiz-results', icon: <Award className="w-4 h-4" /> },
+          { label: 'Pesan', path: '/student/messages', icon: <MessageCircle className="w-4 h-4" /> },
           { label: 'Notifikasi', path: '/student/notifications', icon: <Bell className="w-4 h-4" />, badge: '3', badgeColor: 'bg-orange text-white' },
           { label: 'Profil & Pengaturan', path: '/student/settings', icon: <Settings className="w-4 h-4" /> },
         ];
@@ -163,16 +179,15 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ isOpen, onCl
 
         {/* Pinned Bottom: Sign Out */}
         <div className="p-3 border-t border-navy-dark">
+          {logoutError && <p role="alert" className="px-3.5 pb-2 text-xs text-red-200">{logoutError}</p>}
           <button
             type="button"
-            onClick={() => {
-              logout();
-              navigate('/login');
-            }}
-            className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-navy-dark transition-colors"
+            onClick={() => void handleLogout()}
+            disabled={isLoggingOut}
+            className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-navy-dark transition-colors disabled:opacity-60"
           >
             <LogOut className="w-4 h-4 text-slate-400" />
-            <span>Keluar</span>
+            <span>{isLoggingOut ? 'Memproses...' : 'Keluar'}</span>
           </button>
         </div>
       </aside>

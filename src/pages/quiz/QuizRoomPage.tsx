@@ -1,495 +1,215 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import {
-  X,
-  Clock,
-  Flag,
-  ChevronLeft,
-  ChevronRight,
-  Info,
-  CheckCircle2,
-  Check,
-  AlertTriangle,
-} from 'lucide-react';
-import { Card, Button, ProgressBar, Avatar } from '../../components/ui';
-import { mockQuizReactHooks } from '../../data/mockData';
-import { getUserAvatar } from '../../config/media';
-import { submitQuizAnswers } from '../../services/quizService';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { AlertCircle, Check, ChevronLeft, ChevronRight, Clock, Flag, X } from 'lucide-react';
+import { Avatar, Button, Card } from '../../components/ui';
+import { useAuth } from '../../context/AuthContext';
+import { QuizSession, saveQuizAnswer, startQuizSession, submitQuizAnswers } from '../../services/quizService';
 
 export const QuizRoomPage: React.FC = () => {
-  const { quizId = 'quiz-react-hooks' } = useParams();
+  const { quizId = '' } = useParams();
   const navigate = useNavigate();
-
-  const quiz = mockQuizReactHooks;
-  const totalQuestions = quiz.questions.length; // 10
-
-  // Quiz state
-  const [currentIdx, setCurrentIdx] = useState(2); // Question 03 of 10 initially as per spec
-  const [answers, setAnswers] = useState<Record<number, string>>({
-    1: 'A',
-    2: 'A', // Q2 will intentionally be wrong (correct is B)
-  });
+  const { user } = useAuth();
+  const [session, setSession] = useState<QuizSession | null>(null);
+  const [answers, setAnswers] = useState<Record<number, string>>({});
   const [flagged, setFlagged] = useState<Record<number, boolean>>({});
-  const [timeLeft, setTimeLeft] = useState(870); // 14:30 left initially as per spec
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [viewMode, setViewMode] = useState<'questions' | 'grid'>('questions');
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [confirmSubmit, setConfirmSubmit] = useState(false);
+  const submitLock = useRef(false);
 
-  const currentQ = quiz.questions[currentIdx];
-  const userAvatar = getUserAvatar('dian-paramitha');
-
-  // Timer countdown
   useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
+    let active = true;
+    setIsLoading(true);
+    setError('');
+    void startQuizSession(quizId)
+      .then((started) => {
+        if (!active) return;
+        setSession(started);
+        setAnswers(started.answers);
+        setFlagged(started.flagged);
+        setTimeLeft(started.remainingSeconds);
+      })
+      .catch((loadError: unknown) => {
+        if (active) setError(loadError instanceof Error ? loadError.message : 'Kuis gagal dimuat.');
+      })
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
+    return () => { active = false; };
+  }, [quizId]);
 
-  const formatTime = (secs: number) => {
-    const m = Math.floor(secs / 60);
-    const s = secs % 60;
-    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  };
-
-  const handleSelectOption = (optId: string) => {
-    setAnswers((prev) => ({
-      ...prev,
-      [currentQ.id]: optId,
-    }));
-  };
-
-  const handleClearSelection = () => {
-    setAnswers((prev) => {
-      const next = { ...prev };
-      delete next[currentQ.id];
-      return next;
-    });
-  };
-
-  const handleToggleFlag = () => {
-    setFlagged((prev) => ({
-      ...prev,
-      [currentQ.id]: !prev[currentQ.id],
-    }));
-  };
-
-  const answeredCount = Object.keys(answers).length;
-
-  const handleSubmit = async () => {
-    if (answeredCount < totalQuestions && !showConfirmModal) {
-      setShowConfirmModal(true);
-      return;
+  const submit = useCallback(async () => {
+    if (!session || submitLock.current) return;
+    submitLock.current = true;
+    setIsSubmitting(true);
+    setError('');
+    try {
+      await submitQuizAnswers(session, answers);
+      navigate(`/quiz/${quizId}/result`, { replace: true });
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : 'Jawaban gagal dikirim.');
+      submitLock.current = false;
+      setIsSubmitting(false);
     }
-    const timeTaken = 1200 - timeLeft;
-    await submitQuizAnswers(quizId, answers, timeTaken);
-    navigate(`/quiz/${quizId}/result`);
+  }, [answers, navigate, quizId, session]);
+
+  useEffect(() => {
+    if (!session || isSubmitting) return;
+    const timer = window.setInterval(() => {
+      setTimeLeft((remaining) => {
+        if (remaining <= 1) {
+          window.clearInterval(timer);
+          void submit();
+          return 0;
+        }
+        return remaining - 1;
+      });
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [isSubmitting, session, submit]);
+
+  const selectedQuestion = session?.quiz.questions[currentIndex];
+  const answeredCount = Object.keys(answers).length;
+  const changeAnswer = async (label: string | null) => {
+    if (!session || !selectedQuestion || isSubmitting) return;
+    const nextAnswers = { ...answers };
+    if (label === null) delete nextAnswers[selectedQuestion.id];
+    else nextAnswers[selectedQuestion.id] = label;
+    setAnswers(nextAnswers);
+    try {
+      await saveQuizAnswer(session, selectedQuestion.id, label, Boolean(flagged[selectedQuestion.id]));
+      setError('');
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Jawaban gagal disimpan.');
+    }
   };
+
+  const toggleFlag = async () => {
+    if (!session || !selectedQuestion || isSubmitting) return;
+    const nextFlagged = !flagged[selectedQuestion.id];
+    setFlagged((current) => ({ ...current, [selectedQuestion.id]: nextFlagged }));
+    try {
+      await saveQuizAnswer(session, selectedQuestion.id, answers[selectedQuestion.id] ?? null, nextFlagged);
+      setError('');
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Tanda tinjau gagal disimpan.');
+    }
+  };
+
+  if (isLoading) return <Card className="m-8 p-10 text-center text-sm text-slate-500">Memuat kuis dan percobaan...</Card>;
+  if (!session || !selectedQuestion) {
+    return (
+      <Card className="mx-auto my-12 max-w-xl p-8 text-center">
+        <AlertCircle className="mx-auto h-8 w-8 text-red" />
+        <p role="alert" className="mt-3 text-sm text-red">{error || 'Kuis tidak tersedia.'}</p>
+        <Button className="mt-5" variant="navy" onClick={() => navigate(-1)}>Kembali</Button>
+      </Card>
+    );
+  }
+
+  const formatTime = (seconds: number) =>
+    `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
 
   return (
-    <div className="min-h-screen bg-app flex flex-col justify-between">
-      {/* 1. LOCKED-DOWN HEADER */}
-      <header className="sticky top-0 z-30 bg-white border-b border-border h-16 px-4 sm:px-8 flex items-center justify-between shadow-sm">
-        {/* Left: Exit button + course & quiz titles */}
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => navigate('/student')}
-            className="w-9 h-9 rounded-xl border border-border flex items-center justify-center text-slate-500 hover:text-navy hover:bg-slate-50 transition-colors"
-            title="Keluar dari Ujian"
-          >
-            <X className="w-5 h-5" />
-          </button>
-          <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight">
-              BOOTCAMP PENGEMBANGAN WEB 2025
-            </span>
-            <span className="text-xs sm:text-sm font-extrabold text-text-heading block leading-tight">
-              Kuis 1: Dasar React & Frontend
-            </span>
-          </div>
-        </div>
-
-        {/* Center: Tabs Questions (active) / Review Grid */}
-        <div className="hidden md:flex items-center p-1 bg-slate-100 rounded-xl text-xs font-bold border border-border">
-          <button
-            type="button"
-            onClick={() => setViewMode('questions')}
-            className={`px-4 py-1.5 rounded-lg transition-all ${
-              viewMode === 'questions' ? 'bg-white text-navy shadow-sm' : 'text-slate-600'
-            }`}
-          >
-            Pertanyaan
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode('grid')}
-            className={`px-4 py-1.5 rounded-lg transition-all ${
-              viewMode === 'grid' ? 'bg-white text-navy shadow-sm' : 'text-slate-600'
-            }`}
-          >
-            Ringkasan Soal
-          </button>
-        </div>
-
-        {/* Right: User name + Student ID + Avatar */}
-        <div className="flex items-center gap-3">
-          <div className="text-right hidden sm:block">
-            <span className="text-xs font-bold text-text-heading block leading-tight">
-              Dian Paramitha
-            </span>
-            <span className="text-[10px] text-slate-400 font-semibold block">
-              ID Peserta #84920
-            </span>
-          </div>
-          <Avatar src={userAvatar} name="Dian Paramitha" size="sm" />
-        </div>
-      </header>
-
-      {/* 2. BODY CONTAINER */}
-      <main className="flex-1 max-w-[1200px] w-full mx-auto px-4 sm:px-8 py-8">
-        {/* Breadcrumb line & Big Title */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
-          <div>
-            <div className="text-xs font-semibold text-slate-400 mb-1">
-              Bootcamp Pengembangan Web 2025 • Evaluasi Komprehensif Modul 4
+    <main className="min-h-screen bg-app px-4 py-6 sm:px-8">
+      <div className="mx-auto max-w-[1100px] space-y-5">
+        <header className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-border bg-white p-4">
+          <div className="flex items-center gap-3">
+            <Button variant="outline" size="sm" onClick={() => navigate('/student')} aria-label="Keluar dari kuis"><X className="h-4 w-4" /></Button>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-400">{session.quiz.courseTitle} · {session.quiz.moduleTitle}</p>
+              <h1 className="text-lg font-extrabold text-text-heading">{session.quiz.title}</h1>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-text-heading">
-              Kuis Pengembangan Web 1: Arsitektur React & Frontend
-            </h1>
           </div>
+          <div className={`flex items-center gap-2 font-mono text-lg font-extrabold ${timeLeft < 60 ? 'text-red' : 'text-orange'}`}>
+            <Clock className="h-5 w-5" /> {formatTime(timeLeft)}
+          </div>
+        </header>
 
-          {/* Right: Timer card & Flag for review button */}
-          <div className="flex items-center gap-3 shrink-0">
-            <div className="bg-white rounded-2xl border border-border shadow-soft px-4 py-2.5 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-orange-tint flex items-center justify-center text-orange shrink-0">
-                <Clock className="w-5 h-5" />
-              </div>
+        {error && <p role="alert" className="rounded-xl border border-red/20 bg-red/5 p-3 text-sm text-red">{error}</p>}
+
+        <div className="grid gap-5 lg:grid-cols-[1fr_280px]">
+          <Card className="p-5 sm:p-8">
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight">
-                  SISA WAKTU
-                </span>
-                <span className="text-lg font-extrabold text-orange font-mono">
-                  {formatTime(timeLeft)}
-                </span>
+                <p className="text-xs font-bold uppercase text-blue">Pertanyaan {currentIndex + 1} dari {session.quiz.questions.length}</p>
+                <h2 className="mt-1 text-xl font-bold text-text-heading">{selectedQuestion.topic}</h2>
               </div>
-            </div>
-
-            <Button
-              variant={flagged[currentQ.id] ? 'orange' : 'outline'}
-              size="md"
-              onClick={handleToggleFlag}
-              leftIcon={<Flag className={`w-4 h-4 ${flagged[currentQ.id] ? 'fill-white' : ''}`} />}
-            >
-              {flagged[currentQ.id] ? 'Ditandai' : 'Tandai untuk Ditinjau'}
-            </Button>
-          </div>
-        </div>
-
-        {/* Main Two Columns */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Left Column (8 cols): Question Card */}
-          <div className="lg:col-span-8">
-            <Card className="p-6 sm:p-8">
-              {/* Question Header & Chips */}
-              <div className="flex items-center justify-between pb-4 border-b border-border mb-6 flex-wrap gap-2">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="px-3 py-1 rounded-full bg-soft-blue text-blue text-xs font-bold uppercase">
-                    Pertanyaan {String(currentQ.id).padStart(2, '0')} dari 10
-                  </span>
-                  <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold">
-                    {currentQ.topic}
-                  </span>
-                </div>
-                <span className="text-xs font-bold text-navy px-2.5 py-1 rounded-lg bg-navy/10">
-                  {currentQ.points} Poin
-                </span>
-              </div>
-
-              {/* Segmented Progress Bar (10 segments) */}
-              <div className="mb-6">
-                <div className="flex justify-between text-xs text-slate-500 font-semibold mb-1.5">
-                  <span>Progres: {Math.round((answeredCount / totalQuestions) * 100)}% terjawab</span>
-                  <span className="text-navy font-bold">Target nilai kelulusan: 80%</span>
-                </div>
-                <div className="grid grid-cols-10 gap-1.5 h-2">
-                  {quiz.questions.map((q) => {
-                    const isAnswered = !!answers[q.id];
-                    const isCurrent = q.id === currentQ.id;
-                    return (
-                      <div
-                        key={q.id}
-                        className={`rounded-full transition-all ${
-                          isAnswered
-                            ? 'bg-blue'
-                            : isCurrent
-                            ? 'bg-orange'
-                            : 'bg-slate-200'
-                        }`}
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Question Text */}
-              <h2 className="text-lg sm:text-xl font-bold text-text-heading mb-4 leading-snug">
-                {currentQ.question}
-              </h2>
-
-              {/* Dark Code Block if present */}
-              {currentQ.codeSnippet && (
-                <div className="rounded-xl overflow-hidden bg-slate-900 border border-slate-800 text-slate-200 mb-6 shadow-inner">
-                  <div className="px-4 py-2 bg-slate-950 flex items-center justify-between text-xs border-b border-slate-800">
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
-                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                      <span className="w-2.5 h-2.5 rounded-full bg-green-500" />
-                      <span className="ml-2 text-slate-400 font-mono text-[11px]">
-                        {currentQ.codeSnippet.title}
-                      </span>
-                    </div>
-                    <span className="text-[10px] uppercase font-bold text-slate-500">
-                      {currentQ.codeSnippet.language} (ES6+)
-                    </span>
-                  </div>
-                  <pre className="p-4 text-xs sm:text-sm font-mono text-emerald-400 overflow-x-auto">
-                    <code>{currentQ.codeSnippet.code}</code>
-                  </pre>
-                </div>
-              )}
-
-              {/* Four Option Cards A-D */}
-              <div className="space-y-3 mb-8">
-                {currentQ.options.map((opt) => {
-                  const isSelected = answers[currentQ.id] === opt.id;
-                  return (
-                    <div
-                      key={opt.id}
-                      onClick={() => handleSelectOption(opt.id)}
-                      className={`p-4 rounded-xl border transition-all cursor-pointer flex items-center justify-between select-none ${
-                        isSelected
-                          ? 'border-blue bg-soft-blue/40 ring-1 ring-blue text-navy shadow-sm'
-                          : 'border-border bg-white hover:border-slate-300 hover:bg-slate-50/50'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3 pr-4 flex-1">
-                        <span
-                          className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
-                            isSelected
-                              ? 'bg-blue text-white'
-                              : 'bg-slate-100 text-slate-600'
-                          }`}
-                        >
-                          {opt.id}
-                        </span>
-                        <span className={`text-xs sm:text-sm ${isSelected ? 'font-bold text-navy' : 'text-slate-700'}`}>
-                          {opt.text}
-                        </span>
-                      </div>
-
-                      {/* Blue check circle on the right if selected */}
-                      <div className="shrink-0">
-                        {isSelected ? (
-                          <div className="w-5 h-5 rounded-full bg-blue text-white flex items-center justify-center">
-                            <Check className="w-3.5 h-3.5 stroke-[3]" />
-                          </div>
-                        ) : (
-                          <div className="w-5 h-5 rounded-full border border-slate-300" />
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Footer navigation buttons */}
-              <div className="pt-6 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <Button
-                    variant="outline"
-                    size="md"
-                    disabled={currentIdx === 0}
-                    onClick={() => setCurrentIdx((prev) => Math.max(0, prev - 1))}
-                    leftIcon={<ChevronLeft className="w-4 h-4" />}
-                  >
-                    Pertanyaan Sebelumnya
-                  </Button>
-                  <button
-                    type="button"
-                    onClick={handleClearSelection}
-                    className="text-xs font-semibold text-slate-500 hover:text-red px-3 py-2 transition-colors"
-                  >
-                    Hapus Pilihan
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-3 w-full sm:w-auto">
-                  {currentIdx < totalQuestions - 1 ? (
-                    <Button
-                      variant="navy"
-                      size="md"
-                      onClick={() => setCurrentIdx((prev) => Math.min(totalQuestions - 1, prev + 1))}
-                      rightIcon={<ChevronRight className="w-4 h-4" />}
-                    >
-                      Pertanyaan Berikutnya
-                    </Button>
-                  ) : null}
-
-                  <Button
-                    variant="orange"
-                    size="md"
-                    onClick={handleSubmit}
-                  >
-                    Kumpulkan Kuis
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          </div>
-
-          {/* Right Column (4 cols): Exam Matrix / Question Navigator */}
-          <div className="lg:col-span-4 sticky top-24 space-y-6">
-            <Card className="p-6">
-              <div className="flex items-center justify-between pb-3 border-b border-border mb-4">
-                <h3 className="text-sm font-bold text-text-heading">
-                  NAVIGATOR UJIAN
-                </h3>
-                <span className="px-2 py-0.5 rounded-full bg-soft-blue text-blue text-xs font-bold">
-                  Total 10
-                </span>
-              </div>
-
-              {/* Legend: Answered, Current Active, Unanswered, Flagged */}
-              <div className="grid grid-cols-2 gap-2 text-xs text-slate-500 mb-5 pb-3 border-b border-border">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-3.5 h-3.5 rounded bg-blue flex items-center justify-center text-white text-[8px]">
-                    ✓
-                  </div>
-                  <span>Terjawab</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-3.5 h-3.5 rounded border-2 border-orange bg-white" />
-                  <span>Sedang Dibuka</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-3.5 h-3.5 rounded bg-slate-200" />
-                  <span>Belum Dijawab</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-3.5 h-3.5 rounded bg-slate-200 relative flex items-center justify-center">
-                    <span className="w-1.5 h-1.5 rounded-full bg-orange absolute" />
-                  </div>
-                  <span>Ditandai</span>
-                </div>
-              </div>
-
-              {/* 5x2 Grid of Number Buttons */}
-              <div className="grid grid-cols-5 gap-2.5 mb-6">
-                {quiz.questions.map((q, idx) => {
-                  const isAnswered = !!answers[q.id];
-                  const isCurrent = idx === currentIdx;
-                  const isFlagged = !!flagged[q.id];
-
-                  let style = 'bg-slate-100 text-slate-600 border border-slate-200';
-                  if (isAnswered) {
-                    style = 'bg-blue text-white shadow-sm font-bold';
-                  }
-                  if (isCurrent) {
-                    style = `${style} ring-2 ring-orange border-orange`;
-                  }
-
-                  return (
-                    <button
-                      key={q.id}
-                      type="button"
-                      onClick={() => setCurrentIdx(idx)}
-                      className={`h-11 rounded-xl text-xs font-bold flex flex-col items-center justify-center relative transition-all ${style}`}
-                    >
-                      <span>{q.id}</span>
-                      {isAnswered && <span className="text-[9px] leading-none mt-0.5">✓</span>}
-                      {isFlagged && (
-                        <span className="w-2 h-2 rounded-full bg-orange absolute -top-1 -right-1 ring-2 ring-white" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Session Progress bar */}
-              <div className="space-y-1.5 mb-6 pb-4 border-b border-border">
-                <div className="flex justify-between text-xs font-bold text-slate-700">
-                  <span>Progres Sesi {Math.round((answeredCount / totalQuestions) * 100)}% Selesai</span>
-                </div>
-                <ProgressBar progress={(answeredCount / totalQuestions) * 100} color="blue" size="xs" />
-                <div className="text-[11px] text-slate-400">
-                  {answeredCount} Terjawab / {totalQuestions - answeredCount} Tersisa
-                </div>
-              </div>
-
-              {/* Orange Full-Width Button */}
-              <Button
-                variant="orange"
-                size="md"
-                fullWidth
-                onClick={handleSubmit}
-                className="shadow-md"
-              >
-                Akhiri & Selesaikan Ujian
+              <Button variant={flagged[selectedQuestion.id] ? 'orange' : 'outline'} size="sm" onClick={toggleFlag}>
+                <Flag className="mr-2 h-4 w-4" /> {flagged[selectedQuestion.id] ? 'Ditandai' : 'Tandai'}
               </Button>
-            </Card>
-
-            {/* Bottom info notice */}
-            <div className="p-4 rounded-xl bg-soft-blue/40 border border-blue/20 flex items-start gap-2.5 text-xs text-slate-600">
-              <Info className="w-4 h-4 text-blue shrink-0 mt-0.5" />
-              <span>
-                Jawabanmu disimpan otomatis setiap kali pilihan berubah. Kamu dapat kembali dan mengubah jawaban sebelum mengumpulkan kuis.
-              </span>
             </div>
-          </div>
-        </div>
-      </main>
-
-      {/* 3. CONFIRMATION MODAL IF UNANSWERED */}
-      {showConfirmModal && (
-        <div className="fixed inset-0 bg-navy/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <Card className="max-w-md w-full p-6 shadow-soft-lg animate-fade-in">
-            <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center mb-4">
-              <AlertTriangle className="w-6 h-6" />
+            <p className="whitespace-pre-wrap text-base leading-relaxed text-slate-800">{selectedQuestion.question}</p>
+            {selectedQuestion.codeSnippet && (
+              <pre className="my-5 overflow-x-auto rounded-xl bg-slate-900 p-4 text-sm text-emerald-300"><code>{selectedQuestion.codeSnippet.code}</code></pre>
+            )}
+            <div className="mt-6 space-y-3">
+              {selectedQuestion.options.map((option) => (
+                <button key={option.id} type="button" onClick={() => void changeAnswer(option.id)}
+                  className={`flex w-full items-center gap-3 rounded-xl border p-4 text-left text-sm transition-colors ${
+                    answers[selectedQuestion.id] === option.id ? 'border-blue bg-soft-blue text-navy' : 'border-border hover:bg-slate-50'
+                  }`}>
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-100 font-bold">{option.id}</span>
+                  <span className="flex-1">{option.text}</span>
+                  {answers[selectedQuestion.id] === option.id && <Check className="h-4 w-4 text-blue" />}
+                </button>
+              ))}
             </div>
-            <h3 className="text-lg font-bold text-text-heading mb-2">
-              Masih Ada Pertanyaan yang Belum Dijawab
-            </h3>
-            <p className="text-xs text-slate-600 leading-relaxed mb-6">
-              Masih ada <strong>{totalQuestions - answeredCount} pertanyaan yang belum dijawab</strong>. Yakin ingin mengakhiri dan mengumpulkan ujian sekarang?
-            </p>
-            <div className="flex items-center justify-end gap-3">
-              <Button variant="outline" size="sm" onClick={() => setShowConfirmModal(false)}>
-                Kembali ke Ujian
-              </Button>
-              <Button
-                variant="orange"
-                size="sm"
-                onClick={async () => {
-                  setShowConfirmModal(false);
-                  const timeTaken = 1200 - timeLeft;
-                  await submitQuizAnswers(quizId, answers, timeTaken);
-                  navigate(`/quiz/${quizId}/result`);
-                }}
-              >
-                Ya, Kumpulkan Sekarang
-              </Button>
+            <div className="mt-7 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
+              <Button variant="outline" disabled={currentIndex === 0} onClick={() => setCurrentIndex((index) => index - 1)} leftIcon={<ChevronLeft className="h-4 w-4" />}>Sebelumnya</Button>
+              <Button variant="outline" onClick={() => void changeAnswer(null)}>Hapus pilihan</Button>
+              {currentIndex < session.quiz.questions.length - 1
+                ? <Button variant="navy" onClick={() => setCurrentIndex((index) => index + 1)} rightIcon={<ChevronRight className="h-4 w-4" />}>Berikutnya</Button>
+                : <Button variant="orange" disabled={isSubmitting} onClick={() => setConfirmSubmit(true)}>Kumpulkan kuis</Button>}
             </div>
           </Card>
+
+          <Card className="h-fit p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="font-bold text-text-heading">Navigasi soal</h2>
+              {user && <Avatar name={user.name} size="xs" />}
+            </div>
+            <p className="mb-4 text-xs text-slate-500">{answeredCount} dari {session.quiz.questions.length} dijawab</p>
+            <div className="grid grid-cols-5 gap-2">
+              {session.quiz.questions.map((question, index) => (
+                <button key={question.id} type="button" onClick={() => setCurrentIndex(index)}
+                  className={`relative h-10 rounded-lg border text-sm font-bold ${
+                    currentIndex === index ? 'border-blue bg-blue text-white' :
+                    answers[question.id] ? 'border-green/30 bg-green-tint text-green' : 'border-border bg-white text-slate-600'
+                  }`}>
+                  {index + 1}
+                  {flagged[question.id] && <Flag className="absolute -right-1 -top-1 h-3 w-3 fill-orange text-orange" />}
+                </button>
+              ))}
+            </div>
+            <Button className="mt-5 w-full" variant="orange" disabled={isSubmitting} onClick={() => setConfirmSubmit(true)}>
+              Kumpulkan ({answeredCount}/{session.quiz.questions.length})
+            </Button>
+          </Card>
+        </div>
+      </div>
+
+      {confirmSubmit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/50 p-4">
+          <section role="dialog" aria-modal="true" className="w-full max-w-md rounded-2xl bg-white p-6 shadow-soft-lg">
+            <h2 className="text-lg font-bold text-text-heading">Kumpulkan jawaban?</h2>
+            <p className="mt-2 text-sm text-slate-600">
+              {answeredCount < session.quiz.questions.length
+                ? `Masih ada ${session.quiz.questions.length - answeredCount} soal belum dijawab. `
+                : ''}Nilai dihitung oleh server dan jawaban tidak dapat diubah setelah dikirim.
+            </p>
+            <div className="mt-5 flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setConfirmSubmit(false)}>Lanjut mengerjakan</Button>
+              <Button variant="orange" disabled={isSubmitting} onClick={() => void submit()}>
+                {isSubmitting ? 'Mengirim...' : 'Kirim jawaban'}
+              </Button>
+            </div>
+          </section>
         </div>
       )}
-
-      {/* 4. FOOTER */}
-      <footer className="py-4 border-t border-border bg-white text-center text-xs text-slate-400">
-        <div className="max-w-[1200px] mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>Lingkungan Ujian Aman LMS EduSpace</span>
-          <span>© 2025 EduSpace. Semua aktivitas tercatat.</span>
-        </div>
-      </footer>
-    </div>
+    </main>
   );
 };

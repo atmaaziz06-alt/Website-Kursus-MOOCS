@@ -9,9 +9,8 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { Card, EmptyState } from '../components/ui';
-import { NotificationKind } from '../data/notifications';
 import { useAuth } from '../context/AuthContext';
-import { useNotifications } from '../context/NotificationContext';
+import { NotificationKind, useNotifications } from '../context/NotificationContext';
 
 const icons: Record<NotificationKind, React.ReactNode> = {
   course: <BookOpen className="w-4 h-4" />,
@@ -22,13 +21,22 @@ const icons: Record<NotificationKind, React.ReactNode> = {
 
 export const NotificationsPage: React.FC = () => {
   const { role } = useAuth();
-  const { notifications, unreadCount, isRead, markAsRead, markAllAsRead } = useNotifications();
+  const { notifications, unreadCount, isRead, markAsRead, markAllAsRead, isLoading, error: notificationError } = useNotifications();
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  const [actionError, setActionError] = useState('');
   const filteredNotifications = useMemo(
     () => notifications.filter((item) => filter === 'all' || !isRead(item.id)),
     [filter, isRead, notifications]
   );
   const roleTitle = role === 'participant' ? 'belajar' : role === 'instructor' ? 'mengajar' : 'platform';
+  const handleMarkAllRead = async () => {
+    setActionError('');
+    try {
+      await markAllAsRead();
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Notifikasi gagal diperbarui.');
+    }
+  };
 
   return (
     <div className="max-w-[1000px] mx-auto space-y-6">
@@ -42,7 +50,7 @@ export const NotificationsPage: React.FC = () => {
         </div>
         <button
           type="button"
-          onClick={markAllAsRead}
+          onClick={() => void handleMarkAllRead()}
           disabled={unreadCount === 0}
           className="inline-flex items-center gap-2 self-start sm:self-auto text-xs font-bold text-blue hover:text-navy disabled:text-slate-400 disabled:cursor-not-allowed"
         >
@@ -51,6 +59,11 @@ export const NotificationsPage: React.FC = () => {
         </button>
       </div>
 
+      {(notificationError || actionError) && (
+        <p role="alert" className="rounded-xl border border-red/20 bg-red/5 p-3 text-sm text-red">
+          {actionError || notificationError}
+        </p>
+      )}
       <Card className="overflow-hidden">
         <div className="flex items-center justify-between gap-4 border-b border-border px-5 py-4">
           <div className="flex items-center gap-2">
@@ -81,7 +94,9 @@ export const NotificationsPage: React.FC = () => {
           </span>
         </div>
 
-        {filteredNotifications.length === 0 ? (
+        {isLoading ? (
+          <p className="p-10 text-center text-sm text-slate-500">Memuat notifikasi...</p>
+        ) : filteredNotifications.length === 0 ? (
           <EmptyState
             icon={<Check className="w-7 h-7" />}
             title={filter === 'unread' ? 'Semua notifikasi telah dibaca' : 'Belum ada notifikasi'}
@@ -123,7 +138,10 @@ export const NotificationsPage: React.FC = () => {
                   {!read && (
                     <button
                       type="button"
-                      onClick={() => markAsRead(notification.id)}
+                      onClick={() => {
+                        void markAsRead(notification.id).catch((error: unknown) =>
+                          setActionError(error instanceof Error ? error.message : 'Notifikasi gagal diperbarui.'));
+                      }}
                       aria-label={`Tandai ${notification.title} telah dibaca`}
                       className="rounded-lg p-2 text-slate-400 hover:bg-white hover:text-blue focus:outline-none focus-visible:ring-2 focus-visible:ring-blue"
                     >

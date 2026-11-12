@@ -47,7 +47,7 @@ export const CourseCard: React.FC<CourseCardProps> = ({
       {/* Thumbnail area */}
       <div className="relative aspect-[16/9] w-full overflow-hidden bg-slate-100">
         <img
-          src={mediaItem.thumbnail}
+          src={course.thumbnailUrl || mediaItem.thumbnail}
           alt={course.title}
           className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
           loading="lazy"

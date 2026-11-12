@@ -3,24 +3,22 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { BookOpen, Search, ArrowRight, Download, Award, CheckCircle2 } from 'lucide-react';
 import { Card, Button, ProgressBar, Badge, Avatar } from '../../components/ui';
 import { useCourses } from '../../context/CourseContext';
-import { mockCourses } from '../../data/mockData';
-import { getCourseMedia, getInstructorPhoto } from '../../config/media';
+import { getCourseMedia } from '../../config/media';
 import { downloadPrintableCertificate } from '../../utils/download';
 import { useAuth } from '../../context/AuthContext';
 
 export const StudentCourses: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { enrolledCourses } = useCourses();
+  const { enrolledCourses, isLoading, error: coursesError } = useCourses();
   const { user } = useAuth();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
 
   const filtered = enrolledCourses.filter((item) => {
-    const course = mockCourses.find((c) => c.slug === item.courseSlug);
     if (search.trim()) {
       const q = search.toLowerCase();
-      if (!course?.title.toLowerCase().includes(q)) return false;
+      if (!item.courseTitle.toLowerCase().includes(q)) return false;
     }
     if (filter === 'active' && item.isCompleted) return false;
     if (filter === 'completed' && !item.isCompleted) return false;
@@ -40,6 +38,11 @@ export const StudentCourses: React.FC = () => {
             <p className="mt-0.5 text-xs text-slate-600">{enrolledCourseTitle}</p>
           </div>
         </div>
+      )}
+      {coursesError && (
+        <p role="alert" className="rounded-xl border border-red/20 bg-red/5 px-4 py-3 text-sm text-red">
+          Gagal memuat data kursus: {coursesError}
+        </p>
       )}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
@@ -96,17 +99,15 @@ export const StudentCourses: React.FC = () => {
 
       {/* Course Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filtered.map((item) => {
-          const course = mockCourses.find((c) => c.slug === item.courseSlug);
-          const courseMedia = getCourseMedia(item.courseSlug);
-          const instructorPhoto = getInstructorPhoto(course?.instructor.id || 'john-smith');
+        {!isLoading && filtered.map((item) => {
+          const thumbnail = item.thumbnailUrl || getCourseMedia(item.courseSlug).thumbnail;
 
           return (
             <Card key={item.courseId} className="flex flex-col overflow-hidden">
               <div className="relative aspect-[16/9] w-full bg-slate-100">
                 <img
-                  src={courseMedia.thumbnail}
-                  alt={course?.title || item.courseSlug}
+                  src={thumbnail}
+                  alt={item.courseTitle}
                   className="w-full h-full object-cover"
                 />
                 <div className="absolute top-3 left-3">
@@ -119,18 +120,18 @@ export const StudentCourses: React.FC = () => {
               <div className="p-5 flex-1 flex flex-col justify-between">
                 <div>
                   <div className="flex items-center gap-2 mb-2">
-                    <Avatar src={instructorPhoto} name={course?.instructor.name || 'John Smith'} size="xs" />
+                    <Avatar src={item.instructorAvatarUrl} name={item.instructorName} size="xs" />
                     <span className="text-xs font-semibold text-slate-500">
-                      {course?.instructor.name || 'John Smith'}
+                      {item.instructorName}
                     </span>
                   </div>
 
                   <h3 className="text-sm font-bold text-text-heading mb-1 line-clamp-2">
-                    {course?.title}
+                    {item.courseTitle}
                   </h3>
 
                   <p className="text-xs text-blue font-semibold mb-3 truncate">
-                    {item.isCompleted ? 'Semua 38 modul telah diselesaikan' : item.currentLessonTitle}
+                    {item.isCompleted ? 'Semua materi telah diselesaikan' : item.currentLessonTitle}
                   </p>
 
                   <ProgressBar
@@ -152,7 +153,7 @@ export const StudentCourses: React.FC = () => {
                       variant="outline"
                       size="sm"
                       fullWidth
-                      onClick={() => downloadPrintableCertificate(user?.name || 'Peserta EduSpace', course?.title || item.courseSlug)}
+                      onClick={() => downloadPrintableCertificate(user?.name || 'Peserta EduSpace', item.courseTitle)}
                       leftIcon={<Download className="w-3.5 h-3.5 text-blue" />}
                     >
                       Unduh Sertifikat
@@ -174,7 +175,12 @@ export const StudentCourses: React.FC = () => {
           );
         })}
       </div>
-      {filtered.length === 0 && (
+      {isLoading && (
+        <p className="rounded-xl border border-border bg-white py-10 text-center text-sm text-slate-500">
+          Memuat kursus...
+        </p>
+      )}
+      {!isLoading && filtered.length === 0 && (
         <p className="rounded-xl border border-border bg-white py-10 text-center text-sm text-slate-500">
           {search ? 'Tidak ada kursus yang cocok dengan pencarianmu.' : 'Belum ada kursus pada kategori ini.'}
         </p>

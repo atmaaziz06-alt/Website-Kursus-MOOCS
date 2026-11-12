@@ -1,25 +1,52 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Search, RotateCcw, Filter, Star, ChevronDown } from 'lucide-react';
 import { CourseCard } from '../../components/course/CourseCard';
-import { Card, Chip, Button, Pagination } from '../../components/ui';
-import { mockCourses } from '../../data/mockData';
+import { Alert, Card, Chip, Button, Pagination } from '../../components/ui';
 import { translateCategory, translateLevel } from '../../config/locale';
+import { getCoursesPage } from '../../services/courseService';
+import { Course } from '../../types';
 
 export const CoursesPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-
-  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
-  const [selectedCategory, setSelectedCategory] = useState<string>(searchParams.get('category') || 'All');
-  const [selectedLevel, setSelectedLevel] = useState<string>(searchParams.get('level') || 'All');
-  const [selectedPrice, setSelectedPrice] = useState<string>(searchParams.get('price') || 'all');
-  const [selectedRating, setSelectedRating] = useState<number>(Number(searchParams.get('rating')) || 0);
-  const [sortBy, setSortBy] = useState<string>('newest');
-  const [currentPage, setCurrentPage] = useState<number>(1);
+  const searchQuery = searchParams.get('q') || '';
+  const selectedCategory = searchParams.get('category') || 'All';
+  const selectedLevel = searchParams.get('level') || 'All';
+  const selectedPrice = searchParams.get('price') || 'all';
+  const selectedRating = Number(searchParams.get('rating')) || 0;
+  const sortBy = searchParams.get('sort') || 'newest';
+  const currentPage = Math.max(1, Number(searchParams.get('page')) || 1);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [totalCourses, setTotalCourses] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [retryCount, setRetryCount] = useState(0);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState<boolean>(false);
 
   const ITEMS_PER_PAGE = 12;
+
+  const updateParams = (updates: Record<string, string | null>) => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      Object.entries(updates).forEach(([key, value]) => {
+        if (value) next.set(key, value);
+        else next.delete(key);
+      });
+      return next;
+    });
+  };
+  const setSearchQuery = (value: string) => updateParams({ q: value || null, page: null });
+  const setSelectedCategory = (value: string) =>
+    updateParams({ category: value === 'All' ? null : value, page: null });
+  const setSelectedLevel = (value: string) =>
+    updateParams({ level: value === 'All' ? null : value, page: null });
+  const setSelectedPrice = (value: string) =>
+    updateParams({ price: value === 'all' ? null : value, page: null });
+  const setSelectedRating = (value: number) =>
+    updateParams({ rating: value ? String(value) : null, page: null });
+  const setSortBy = (value: string) => updateParams({ sort: value, page: null });
+  const setCurrentPage = (value: number) => updateParams({ page: value > 1 ? String(value) : null });
 
   const popularTags = ['Web Development', 'Python', 'Figma', 'Digital Marketing', 'Machine Learning'];
 
@@ -39,69 +66,48 @@ export const CoursesPage: React.FC = () => {
     { name: 'Advanced', count: 5 },
   ];
 
-  // Sync state with URL params
-  useEffect(() => {
-    const cat = searchParams.get('category');
-    if (cat) setSelectedCategory(cat);
-  }, [searchParams]);
-
   const handleResetFilters = () => {
-    setSelectedCategory('All');
-    setSelectedLevel('All');
-    setSelectedPrice('all');
-    setSelectedRating(0);
-    setSearchQuery('');
     setSearchParams({});
-    setCurrentPage(1);
   };
 
-  const filteredCourses = useMemo(() => {
-    return mockCourses.filter((course) => {
-      // Search query
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const matchesTitle = course.title.toLowerCase().includes(q);
-        const matchesSub = course.subtitle.toLowerCase().includes(q);
-        const matchesInstructor = course.instructor.name.toLowerCase().includes(q);
-        const matchesCategory = course.category.toLowerCase().includes(q);
-        if (!matchesTitle && !matchesSub && !matchesInstructor && !matchesCategory) return false;
-      }
+  useEffect(() => {
+    let active = true;
+    const timer = window.setTimeout(() => {
+      setIsLoading(true);
+      setLoadError('');
+      void getCoursesPage({
+        search: searchQuery,
+        category: selectedCategory,
+        level: selectedLevel,
+        price: selectedPrice as 'all' | 'paid' | 'free',
+        minRating: selectedRating,
+        sortBy: sortBy as 'newest' | 'highest-rated' | 'most-popular' | 'price-low' | 'price-high',
+        page: currentPage,
+        pageSize: ITEMS_PER_PAGE,
+      }).then((result) => {
+        if (!active) return;
+        setCourses(result.courses);
+        setTotalCourses(result.total);
+      }).catch((error: unknown) => {
+        if (!active) return;
+        setCourses([]);
+        setTotalCourses(0);
+        setLoadError(error instanceof Error ? error.message : 'Kursus tidak dapat dimuat.');
+      }).finally(() => {
+        if (active) setIsLoading(false);
+      });
+    }, searchQuery ? 250 : 0);
 
-      // Category
-      if (selectedCategory !== 'All' && course.category.toLowerCase() !== selectedCategory.toLowerCase()) {
-        return false;
-      }
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [searchQuery, selectedCategory, selectedLevel, selectedPrice, selectedRating, sortBy, currentPage, retryCount]);
 
-      // Level
-      if (selectedLevel !== 'All' && course.level.toLowerCase() !== selectedLevel.toLowerCase()) {
-        return false;
-      }
-
-      // Price
-      if (selectedPrice === 'free' && course.price > 0) return false;
-      if (selectedPrice === 'paid' && course.price === 0) return false;
-
-      // Rating
-      if (selectedRating > 0 && course.rating < selectedRating) return false;
-
-      return true;
-    }).sort((a, b) => {
-      if (sortBy === 'highest-rated') return b.rating - a.rating;
-      if (sortBy === 'most-popular') return b.enrolledCount - a.enrolledCount;
-      if (sortBy === 'price-low') return a.price - b.price;
-      if (sortBy === 'price-high') return b.price - a.price;
-      return 0; // 'newest'
-    });
-  }, [searchQuery, selectedCategory, selectedLevel, selectedPrice, selectedRating, sortBy]);
-
-  const totalPages = Math.ceil(filteredCourses.length / ITEMS_PER_PAGE);
-  const paginatedCourses = filteredCourses.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
-
-  const startIdx = (currentPage - 1) * ITEMS_PER_PAGE + 1;
-  const endIdx = Math.min(currentPage * ITEMS_PER_PAGE, filteredCourses.length);
+  const totalPages = Math.ceil(totalCourses / ITEMS_PER_PAGE);
+  const paginatedCourses = courses;
+  const startIdx = totalCourses === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1;
+  const endIdx = Math.min(currentPage * ITEMS_PER_PAGE, totalCourses);
 
   return (
     <div className="bg-app min-h-screen py-10">
@@ -126,7 +132,6 @@ export const CoursesPage: React.FC = () => {
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
-                setCurrentPage(1);
               }}
               placeholder="Cari kursus, mentor, teknologi, atau topik..."
               className="w-full px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none bg-transparent"
@@ -150,7 +155,6 @@ export const CoursesPage: React.FC = () => {
                 type="button"
                 onClick={() => {
                   setSearchQuery(tag);
-                  setCurrentPage(1);
                 }}
                 className="px-3 py-1 rounded-full bg-white border border-border text-slate-600 hover:border-blue hover:text-blue hover:bg-soft-blue/30 transition-all font-medium"
               >
@@ -163,7 +167,7 @@ export const CoursesPage: React.FC = () => {
         {/* Mobile Filter Toggle */}
         <div className="lg:hidden mb-6 flex justify-between items-center bg-white p-4 rounded-2xl border border-border shadow-sm">
           <span className="text-sm font-bold text-text-heading">
-            {filteredCourses.length} Kursus Ditemukan
+            {isLoading ? 'Memuat kursus...' : `${totalCourses} Kursus Ditemukan`}
           </span>
           <Button
             variant="outline"
@@ -209,7 +213,6 @@ export const CoursesPage: React.FC = () => {
                         checked={selectedCategory === 'All'}
                         onChange={() => {
                           setSelectedCategory('All');
-                          setCurrentPage(1);
                         }}
                         className="text-blue focus:ring-blue"
                       />
@@ -229,7 +232,6 @@ export const CoursesPage: React.FC = () => {
                           checked={selectedCategory.toLowerCase() === cat.name.toLowerCase()}
                           onChange={() => {
                             setSelectedCategory(cat.name);
-                            setCurrentPage(1);
                           }}
                           className="text-blue focus:ring-blue"
                         />
@@ -255,7 +257,6 @@ export const CoursesPage: React.FC = () => {
                         checked={selectedLevel === 'All'}
                         onChange={() => {
                           setSelectedLevel('All');
-                          setCurrentPage(1);
                         }}
                         className="text-blue focus:ring-blue"
                       />
@@ -275,7 +276,6 @@ export const CoursesPage: React.FC = () => {
                           checked={selectedLevel.toLowerCase() === lvl.name.toLowerCase()}
                           onChange={() => {
                             setSelectedLevel(lvl.name);
-                            setCurrentPage(1);
                           }}
                           className="text-blue focus:ring-blue"
                         />
@@ -300,7 +300,6 @@ export const CoursesPage: React.FC = () => {
                       checked={selectedPrice === 'all'}
                       onChange={() => {
                         setSelectedPrice('all');
-                        setCurrentPage(1);
                       }}
                       className="text-blue focus:ring-blue"
                     />
@@ -313,7 +312,6 @@ export const CoursesPage: React.FC = () => {
                       checked={selectedPrice === 'paid'}
                       onChange={() => {
                         setSelectedPrice('paid');
-                        setCurrentPage(1);
                       }}
                       className="text-blue focus:ring-blue"
                     />
@@ -326,7 +324,6 @@ export const CoursesPage: React.FC = () => {
                       checked={selectedPrice === 'free'}
                       onChange={() => {
                         setSelectedPrice('free');
-                        setCurrentPage(1);
                       }}
                       className="text-blue focus:ring-blue"
                     />
@@ -348,7 +345,6 @@ export const CoursesPage: React.FC = () => {
                       checked={selectedRating === 4.5}
                       onChange={() => {
                         setSelectedRating(4.5);
-                        setCurrentPage(1);
                       }}
                       className="text-blue focus:ring-blue"
                     />
@@ -364,7 +360,6 @@ export const CoursesPage: React.FC = () => {
                       checked={selectedRating === 4.0}
                       onChange={() => {
                         setSelectedRating(4.0);
-                        setCurrentPage(1);
                       }}
                       className="text-blue focus:ring-blue"
                     />
@@ -380,7 +375,6 @@ export const CoursesPage: React.FC = () => {
                       checked={selectedRating === 0}
                       onChange={() => {
                         setSelectedRating(0);
-                        setCurrentPage(1);
                       }}
                       className="text-blue focus:ring-blue"
                     />
@@ -396,13 +390,13 @@ export const CoursesPage: React.FC = () => {
             {/* Top Toolbar */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 bg-white p-4 rounded-2xl border border-border shadow-sm">
               <div className="text-xs sm:text-sm font-semibold text-slate-700">
-                {filteredCourses.length > 0 ? (
+                {totalCourses > 0 ? (
                   <span>
                     Menampilkan <strong className="text-navy">{startIdx}-{endIdx}</strong> dari{' '}
-                    <strong className="text-navy">{filteredCourses.length}</strong> kursus
+                    <strong className="text-navy">{totalCourses}</strong> kursus
                   </span>
                 ) : (
-                  <span>Kursus yang sesuai tidak ditemukan</span>
+                  <span>{isLoading ? 'Memuat daftar kursus...' : 'Kursus yang sesuai tidak ditemukan'}</span>
                 )}
               </div>
 
@@ -464,7 +458,20 @@ export const CoursesPage: React.FC = () => {
             </div>
 
             {/* 3-Column Grid of Course Cards */}
-            {paginatedCourses.length > 0 ? (
+            {loadError ? (
+              <Alert type="error" className="my-6">
+                <div className="flex flex-col items-start gap-3">
+                  <span>{loadError}</span>
+                  <Button variant="outline" size="sm" onClick={() => setRetryCount((count) => count + 1)}>
+                    Coba lagi
+                  </Button>
+                </div>
+              </Alert>
+            ) : isLoading ? (
+              <Card className="p-12 text-center my-6">
+                <p className="text-sm font-bold text-text-heading">Memuat katalog kursus...</p>
+              </Card>
+            ) : paginatedCourses.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 mb-10">
                 {paginatedCourses.map((course) => (
                   <CourseCard key={course.id} course={course} showPrice />

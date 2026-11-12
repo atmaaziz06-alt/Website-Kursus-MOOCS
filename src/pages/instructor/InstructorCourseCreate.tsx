@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
-import { ArrowLeft, BookOpen, CheckCircle2, CircleDollarSign, FileText, Send } from 'lucide-react';
+import { ArrowLeft, BookOpen, CheckCircle2, CircleDollarSign, FileText } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button, Card, Input, Select } from '../../components/ui';
 import { useCourses } from '../../context/CourseContext';
+import { useAuth } from '../../context/AuthContext';
+import { getErrorMessage } from '../../lib/errors';
+import { requireSupabase } from '../../lib/supabase';
 import { CourseCategory, CourseLevel } from '../../types';
 import { translateCategory, translateLevel } from '../../config/locale';
 
@@ -21,36 +24,76 @@ const levels: CourseLevel[] = ['Beginner', 'Intermediate', 'Advanced', 'All Leve
 export const InstructorCourseCreate: React.FC = () => {
   const navigate = useNavigate();
   const { createInstructorCourse } = useCourses();
+  const { user } = useAuth();
   const [errorMessage, setErrorMessage] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [thumbnail, setThumbnail] = useState<File | null>(null);
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = event.currentTarget;
     const formData = new FormData(form);
-    const submitter = (event.nativeEvent as SubmitEvent).submitter;
     const title = String(formData.get('title') || '').trim();
     const description = String(formData.get('description') || '').trim();
-    const duration = String(formData.get('duration') || '').trim();
     const priceValue = Number(formData.get('price'));
 
-    if (!title || !description || !duration || !Number.isFinite(priceValue) || priceValue < 0) {
-      setErrorMessage('Masukkan judul, deskripsi, durasi, dan harga nol atau lebih yang valid.');
+    if (!title || description.length < 20 || !Number.isFinite(priceValue) || priceValue < 0) {
+      setErrorMessage('Masukkan judul, deskripsi minimal 20 karakter, dan harga nol atau lebih yang valid.');
+      return;
+    }
+    if (thumbnail && (
+      !['image/jpeg', 'image/png', 'image/webp'].includes(thumbnail.type)
+      || thumbnail.size > 2 * 1024 * 1024
+    )) {
+      setErrorMessage('Thumbnail harus berupa JPG, PNG, atau WebP dan maksimal 2 MB.');
+      return;
+    }
+    if (thumbnail && !user) {
+      setErrorMessage('Sesi pengajar tidak ditemukan. Silakan masuk kembali sebelum mengunggah thumbnail.');
       return;
     }
 
-    const newCourse = createInstructorCourse({
-      title,
-      description,
-      duration,
-      price: priceValue,
-      category: formData.get('category') as CourseCategory,
-      level: formData.get('level') as CourseLevel,
-      status: submitter instanceof HTMLButtonElement && submitter.value === 'Published'
-        ? 'Published'
-        : 'Draft',
-    });
-
-    navigate(`/instructor?created=${encodeURIComponent(newCourse.id)}`);
+    setErrorMessage('');
+    setIsSaving(true);
+    try {
+      const newCourse = await createInstructorCourse({
+        title,
+        description,
+        duration: 'Materi belum ditambahkan',
+        price: priceValue,
+        category: formData.get('category') as CourseCategory,
+        level: formData.get('level') as CourseLevel,
+      });
+      let uploadError = '';
+      if (thumbnail && user) {
+        const client = requireSupabase();
+        const safeName = thumbnail.name.replace(/[^a-zA-Z0-9._-]/g, '-');
+        const path = `${user.id}/${newCourse.id}/${crypto.randomUUID()}-${safeName}`;
+        const { error: storageError } = await client.storage.from('course-thumbnails').upload(path, thumbnail, {
+          contentType: thumbnail.type,
+          upsert: false,
+        });
+        if (storageError) {
+          uploadError = getErrorMessage(storageError);
+        } else {
+          const { error: saveError } = await client.from('courses').update({ thumbnail_path: path }).eq('id', newCourse.id);
+          if (saveError) {
+            const { error: cleanupError } = await client.storage.from('course-thumbnails').remove([path]);
+            if (cleanupError) console.error('Thumbnail baru tertinggal setelah metadata gagal disimpan.', cleanupError);
+            uploadError = getErrorMessage(saveError);
+          }
+        }
+      }
+      navigate(`/instructor/courses/${newCourse.id}`, {
+        state: uploadError
+          ? { error: `Draf berhasil dibuat, tetapi thumbnail gagal disimpan: ${uploadError}` }
+          : undefined,
+      });
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Kursus gagal disimpan.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -66,7 +109,7 @@ export const InstructorCourseCreate: React.FC = () => {
         <p className="text-xs font-bold uppercase tracking-wider text-blue mb-1">Pembuatan kursus</p>
         <h1 className="text-2xl sm:text-3xl font-extrabold text-text-heading">Buat Kursus</h1>
         <p className="text-sm text-slate-500 mt-1">
-          Lengkapi detail kursus. Kamu dapat menyimpannya sebagai draf atau menerbitkannya.
+          Isi informasi dasar kursus. Kursus baru disimpan sebagai draf sebelum materi ditambahkan dan diajukan untuk ditinjau.
         </p>
       </div>
 
@@ -123,13 +166,6 @@ export const InstructorCourseCreate: React.FC = () => {
               required
             />
             <Input
-              name="duration"
-              label="Perkiraan Durasi"
-              placeholder="mis. 8 jam atau 4 minggu"
-              maxLength={40}
-              required
-            />
-            <Input
               name="price"
               label="Harga (Rupiah)"
               type="number"
@@ -139,6 +175,19 @@ export const InstructorCourseCreate: React.FC = () => {
               leftIcon={<CircleDollarSign className="w-4 h-4" />}
               required
             />
+          </div>
+          <div>
+            <label htmlFor="course-thumbnail" className="block text-xs font-semibold text-text-heading mb-1.5 uppercase tracking-wide">
+              Thumbnail kursus (opsional, wajib sebelum diajukan)
+            </label>
+            <input
+              id="course-thumbnail"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={(event) => setThumbnail(event.target.files?.[0] ?? null)}
+              className="w-full rounded-xl border border-border bg-white px-3.5 py-3 text-sm"
+            />
+            <p className="mt-1 text-xs text-slate-400">JPG, PNG, atau WebP, maksimal 2 MB.</p>
           </div>
         </Card>
 
@@ -151,14 +200,11 @@ export const InstructorCourseCreate: React.FC = () => {
         <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3">
           <p className="flex items-center gap-1.5 text-xs text-slate-500">
             <FileText className="w-4 h-4" />
-            Draf dan kursus terbit disimpan di perangkat ini.
+            Draf kursus disimpan di akun Supabase kamu.
           </p>
           <div className="flex flex-col-reverse sm:flex-row gap-2">
-            <Button type="submit" name="status" value="Draft" variant="outline">
-              Simpan sebagai Draf
-            </Button>
-            <Button type="submit" name="status" value="Published" variant="orange" leftIcon={<Send className="w-4 h-4" />}>
-              Terbitkan Kursus
+            <Button type="submit" variant="outline" disabled={isSaving}>
+              {isSaving ? 'Menyimpan...' : 'Simpan sebagai Draf'}
             </Button>
           </div>
         </div>
@@ -166,7 +212,7 @@ export const InstructorCourseCreate: React.FC = () => {
 
       <div className="flex items-start gap-2 rounded-xl border border-green/20 bg-green-tint/50 px-4 py-3 text-xs leading-relaxed text-slate-600">
         <CheckCircle2 className="w-4 h-4 shrink-0 text-green" />
-        Kursus yang kamu buat akan muncul di dasbor pengajar dan tetap tersimpan saat halaman dimuat ulang.
+        Setelah draf disimpan, kamu langsung masuk ke editor untuk menambahkan modul dan materi video, PDF, gambar, atau tulisan Markdown.
       </div>
     </div>
   );

@@ -1,496 +1,267 @@
-import React, { useEffect, useState } from 'react';
-import {
-  Users,
-  Search,
-  Download,
-  Plus,
-  Edit,
-  MoreVertical,
-  CheckCircle2,
-  FolderTree,
-  Trash2,
-  ChevronLeft,
-  ChevronRight,
-  X,
-} from 'lucide-react';
-import { Card, Button, Badge, Avatar } from '../../components/ui';
-import { getUserAvatar } from '../../config/media';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Download, Plus, Search, UserCog } from 'lucide-react';
+import { Avatar, Badge, Button, Card } from '../../components/ui';
+import { UserRole } from '../../types';
+import { getErrorMessage } from '../../lib/errors';
+import { requireSupabase } from '../../lib/supabase';
 import { downloadCSV } from '../../utils/download';
 
-const loadStoredArray = <T,>(key: string, fallback: T[]): T[] => {
-  try {
-    const saved = localStorage.getItem(key);
-    if (!saved) return fallback;
-    const parsed: unknown = JSON.parse(saved);
-    if (!Array.isArray(parsed)) throw new TypeError(`Data pada ${key} bukan daftar.`);
-    return parsed as T[];
-  } catch (error) {
-    console.error(`Gagal membaca ${key}`, error);
-    return fallback;
-  }
+type AdminUser = {
+  id: string;
+  email: string;
+  full_name: string;
+  role: UserRole;
+  instructor_requested: boolean;
+  is_active: boolean;
+  created_at: string;
 };
+type UserFilters = { role: UserRole | null; active: boolean | null };
 
-const persistArray = (key: string, data: unknown): void => {
-  try {
-    localStorage.setItem(key, JSON.stringify(data));
-  } catch (error) {
-    console.error(`Gagal menyimpan ${key}`, error);
-  }
+const pageSize = 25;
+const roleLabels: Record<UserRole, string> = {
+  participant: 'Peserta',
+  instructor: 'Pengajar',
+  admin: 'Admin',
 };
 
 export const AdminUsers: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'users' | 'categories'>('users');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [roleFilter, setRoleFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [dialog, setDialog] = useState<{ type: 'user' | 'category'; id?: string; name: string; email: string; role: string } | null>(null);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [page, setPage] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [editUser, setEditUser] = useState<AdminUser | null>(null);
+  const [newInstructor, setNewInstructor] = useState<{ fullName: string; email: string; password: string } | null>(null);
 
-  // Indonesian user rows
-  const [users, setUsers] = useState(() => loadStoredArray('eduspace_admin_users', [
-    {
-      id: 'USR-84920',
-      name: 'Dian Paramitha',
-      avatarId: 'dian-paramitha',
-      email: 'dian.paramitha@eduspace.ac.id',
-      role: 'Peserta',
-      status: 'Aktif',
-      joined: '12 Jan 2025',
-    },
-    {
-      id: 'USR-84921',
-      name: 'Dr. Siti Nurhaliza M.Cs.',
-      avatarId: 'dr-siti',
-      email: 'siti.nurhaliza@eduspace.ac.id',
-      role: 'Instruktur',
-      status: 'Aktif',
-      joined: '08 Feb 2024',
-    },
-    {
-      id: 'USR-84922',
-      name: 'Rian Hidayat',
-      avatarId: 'rian-hidayat',
-      email: 'rian.hidayat@eduspace.ac.id',
-      role: 'Peserta',
-      status: 'Aktif',
-      joined: '15 Mar 2025',
-    },
-    {
-      id: 'USR-84923',
-      name: 'Michael Wong',
-      avatarId: 'michael-wong',
-      email: 'michael.wong@eduspace.ac.id',
-      role: 'Admin',
-      status: 'Aktif',
-      joined: '01 Jan 2024',
-    },
-    {
-      id: 'USR-84924',
-      name: 'Ahmad Fauzi',
-      avatarId: 'ahmad-fauzi',
-      email: 'ahmad.fauzi@eduspace.ac.id',
-      role: 'Peserta',
-      status: 'Aktif',
-      joined: '20 Apr 2025',
-    },
-    {
-      id: 'USR-84925',
-      name: 'Budi Santoso',
-      avatarId: 'budi-santoso',
-      email: 'budi.santoso@eduspace.ac.id',
-      role: 'Peserta',
-      status: 'Aktif',
-      joined: '05 Jan 2025',
-    },
-  ]));
+  const filters: UserFilters = {
+    role: roleFilter === 'all' ? null : roleFilter,
+    active: activeFilter === 'all' ? null : activeFilter === 'active',
+  };
 
-  // Categories list for tab 2
-  const [categories, setCategories] = useState(() => loadStoredArray('eduspace_admin_categories', [
-    { id: 'cat-1', name: 'Teknologi & Cloud', slug: 'technology', courseCount: 24, count: 24, description: 'Cloud, infrastruktur, DevOps', status: 'Aktif' },
-    { id: 'cat-2', name: 'Pengembangan Perangkat Lunak', slug: 'development', courseCount: 20, count: 20, description: 'Frontend, backend, aplikasi seluler', status: 'Aktif' },
-    { id: 'cat-3', name: 'Bisnis & Manajemen', slug: 'business', courseCount: 18, count: 18, description: 'Manajemen, kepemimpinan, kewirausahaan', status: 'Aktif' },
-    { id: 'cat-4', name: 'UI/UX & Desain Produk', slug: 'design', courseCount: 16, count: 16, description: 'Desain UI/UX dan sistem desain', status: 'Aktif' },
-    { id: 'cat-5', name: 'Pemasaran Digital & Pertumbuhan', slug: 'marketing', courseCount: 14, count: 14, description: 'Iklan performa dan SEO', status: 'Aktif' },
-    { id: 'cat-6', name: 'Pengembangan Diri & Kepemimpinan', slug: 'personal-growth', courseCount: 12, count: 12, description: 'Produktivitas dan pengembangan karier', status: 'Aktif' },
-  ]));
+  const loadUsers = useCallback(async () => {
+    const { data, error: loadError } = await requireSupabase().rpc('admin_list_users', {
+      p_search: search.trim(),
+      p_role: filters.role,
+      p_active: filters.active,
+      p_limit: pageSize,
+      p_offset: page * pageSize,
+    });
+    if (loadError) throw new Error(getErrorMessage(loadError));
+    setUsers(data ?? []);
+    setTotal(data?.[0]?.total_count ?? 0);
+  }, [filters.active, filters.role, page, search]);
 
-  // Filtering users
-  const filteredUsers = users.filter((u) => {
-    if (searchTerm.trim()) {
-      const q = searchTerm.toLowerCase();
-      const match = u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q) || u.id.toLowerCase().includes(q);
-      if (!match) return false;
+  useEffect(() => {
+    let active = true;
+    setIsLoading(true);
+    setError('');
+    const timer = window.setTimeout(() => {
+      void loadUsers().catch((loadError: unknown) => {
+        if (active) setError(loadError instanceof Error ? loadError.message : getErrorMessage(loadError));
+      }).finally(() => {
+        if (active) setIsLoading(false);
+      });
+    }, search.trim() ? 250 : 0);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [loadUsers, search]);
+
+  const changeUser = async (target: AdminUser, role: UserRole, isActive: boolean) => {
+    setIsSaving(true);
+    setError('');
+    const { error: updateError } = await requireSupabase().rpc('admin_set_user', {
+      p_user_id: target.id,
+      p_role: role,
+      p_is_active: isActive,
+    });
+    if (updateError) setError(getErrorMessage(updateError));
+    else {
+      setNotice(`Akun ${target.email} berhasil diperbarui.`);
+      setEditUser(null);
+      try {
+        await loadUsers();
+      } catch (loadError) {
+        setError(getErrorMessage(loadError));
+      }
     }
-    if (roleFilter !== 'all' && u.role.toLowerCase() !== roleFilter.toLowerCase()) return false;
-    if (statusFilter !== 'all' && u.status.toLowerCase() !== statusFilter.toLowerCase()) return false;
-    return true;
-  });
-  const pageSize = 6;
-  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / pageSize));
-  const pageUsers = filteredUsers.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-  const startEntry = filteredUsers.length ? (currentPage - 1) * pageSize + 1 : 0;
-  const endEntry = Math.min(currentPage * pageSize, filteredUsers.length);
+    setIsSaving(false);
+  };
 
-  useEffect(() => persistArray('eduspace_admin_users', users), [users]);
-  useEffect(() => persistArray('eduspace_admin_categories', categories), [categories]);
-  useEffect(() => setCurrentPage((page) => Math.min(page, totalPages)), [totalPages]);
-
-  const saveDialog = (event: React.FormEvent<HTMLFormElement>) => {
+  const createInstructor = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!dialog || !dialog.name.trim()) return;
-    if (dialog.type === 'user') {
-      if (!dialog.email.trim()) return;
-      if (dialog.id) {
-        setUsers((current) => current.map((user) => user.id === dialog.id
-          ? { ...user, name: dialog.name.trim(), email: dialog.email.trim(), role: dialog.role }
-          : user));
-      } else {
-        setUsers((current) => [...current, {
-          id: `USR-${Date.now().toString().slice(-5)}`,
-          name: dialog.name.trim(),
-          avatarId: 'dian-paramitha',
-          email: dialog.email.trim(),
-          role: dialog.role,
-          status: 'Aktif',
-          joined: new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).format(new Date()),
-        }]);
-      }
+    if (!newInstructor) return;
+    setIsSaving(true);
+    setError('');
+    const { error: createError } = await requireSupabase().functions.invoke('admin-create-user', {
+      body: newInstructor,
+    });
+    if (createError) {
+      setError(getErrorMessage(createError));
     } else {
-      const slug = dialog.name.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-      if (dialog.id) {
-        setCategories((current) => current.map((category) => category.id === dialog.id
-          ? { ...category, name: dialog.name.trim(), slug }
-          : category));
-      } else {
-        setCategories((current) => [...current, {
-          id: `cat-${Date.now()}`,
-          name: dialog.name.trim(),
-          slug,
-          courseCount: 0,
-          count: 0,
-          description: '',
-          status: 'Aktif',
-        }]);
+      setNewInstructor(null);
+      setNotice('Akun pengajar berhasil dibuat.');
+      try {
+        await loadUsers();
+      } catch (loadError) {
+        setError(getErrorMessage(loadError));
       }
     }
-    setDialog(null);
+    setIsSaving(false);
   };
 
-  const exportUsers = () => {
-    downloadCSV('pengguna-eduspace.csv', [
-      ['ID', 'Nama', 'Email', 'Peran', 'Status', 'Tanggal Bergabung'],
-      ...filteredUsers.map((user) => [user.id, user.name, user.email, user.role, user.status, user.joined]),
-    ]);
+  const exportUsers = async () => {
+    setIsSaving(true);
+    setError('');
+    try {
+      const allUsers: AdminUser[] = [];
+      let offset = 0;
+      while (offset < total) {
+        const { data, error: exportError } = await requireSupabase().rpc('admin_list_users', {
+          p_search: search.trim(),
+          p_role: filters.role,
+          p_active: filters.active,
+          p_limit: 100,
+          p_offset: offset,
+        });
+        if (exportError) throw new Error(getErrorMessage(exportError));
+        if (!data?.length) break;
+        allUsers.push(...data);
+        offset += data.length;
+      }
+      downloadCSV('pengguna-eduspace.csv', [
+        ['ID', 'Nama', 'Email', 'Peran', 'Status', 'Permintaan Pengajar', 'Tanggal Bergabung'],
+        ...allUsers.map((user) => [
+          user.id,
+          user.full_name,
+          user.email,
+          roleLabels[user.role],
+          user.is_active ? 'Aktif' : 'Nonaktif',
+          user.instructor_requested ? 'Ya' : 'Tidak',
+          new Date(user.created_at).toLocaleDateString('id-ID'),
+        ]),
+      ]);
+    } catch (exportError) {
+      setError(getErrorMessage(exportError));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const getRoleBadgeVariant = (r: string) => {
-    if (r === 'Admin') return 'navy';
-    if (r === 'Instruktur') return 'orange';
-    return 'preview-free'; // Peserta
-  };
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
-    <div className="max-w-[1400px] mx-auto space-y-6">
-      {/* 1. HEADER (Indonesian Copy) */}
-      <div>
-        <div className="text-xs font-semibold text-slate-400 mb-1">
-          Pusat Admin / Pengelolaan
+    <div className="mx-auto max-w-[1300px] space-y-6">
+      <header>
+        <p className="text-xs font-bold uppercase tracking-wider text-blue">Pusat admin</p>
+        <h1 className="mt-1 text-2xl font-extrabold text-text-heading">Kelola pengguna</h1>
+        <p className="mt-1 text-sm text-slate-500">Pencarian, status, role, dan permintaan pengajar dibaca dari Supabase.</p>
+      </header>
+      {error && <p role="alert" className="rounded-xl border border-red/20 bg-red/5 p-3 text-sm text-red">{error}</p>}
+      {notice && <p role="status" className="rounded-xl border border-green/20 bg-green-tint p-3 text-sm text-green">{notice}</p>}
+      <Card className="space-y-5 p-5 sm:p-7">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <label className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input value={search} onChange={(event) => { setSearch(event.target.value); setPage(0); }}
+                placeholder="Cari nama, email, atau ID" className="w-full rounded-xl border border-border bg-slate-50 py-2.5 pl-9 pr-3 text-sm sm:w-72" />
+            </label>
+            <select value={roleFilter} onChange={(event) => { setRoleFilter(event.target.value as UserRole | 'all'); setPage(0); }}
+              className="rounded-xl border border-border bg-slate-50 px-3 py-2.5 text-sm">
+              <option value="all">Semua role</option><option value="participant">Peserta</option><option value="instructor">Pengajar</option><option value="admin">Admin</option>
+            </select>
+            <select value={activeFilter} onChange={(event) => { setActiveFilter(event.target.value as typeof activeFilter); setPage(0); }}
+              className="rounded-xl border border-border bg-slate-50 px-3 py-2.5 text-sm">
+              <option value="all">Semua status</option><option value="active">Aktif</option><option value="inactive">Nonaktif</option>
+            </select>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" disabled={isSaving || !total} onClick={() => void exportUsers()} leftIcon={<Download className="h-4 w-4" />}>Ekspor CSV</Button>
+            <Button variant="orange" disabled={isSaving} onClick={() => setNewInstructor({ fullName: '', email: '', password: '' })} leftIcon={<Plus className="h-4 w-4" />}>Buat akun pengajar</Button>
+          </div>
         </div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-text-heading mb-1.5">
-          Kelola Pengguna & Kategori
-        </h1>
-        <p className="text-xs sm:text-sm text-slate-500 max-w-3xl leading-relaxed">
-          Kelola direktori seluruh pengguna platform, penugasan peran hak akses, serta taksonomi kategori kurikulum.
-        </p>
-
-        {/* Stat Chips */}
-        <div className="flex items-center gap-3 mt-4 flex-wrap">
-          <div className="px-3 py-1.5 rounded-full bg-soft-blue text-blue text-xs font-bold flex items-center gap-1.5 border border-blue/20">
-            <span>TOTAL PENGGUNA:</span>
-            <strong>24,850</strong>
-          </div>
-          <div className="px-3 py-1.5 rounded-full bg-green-tint text-green text-xs font-bold flex items-center gap-1.5 border border-green/20">
-            <span>KATEGORI:</span>
-            <strong>18 Aktif</strong>
-          </div>
-          <div className="px-3 py-1.5 rounded-full bg-orange-tint text-orange-dark text-xs font-bold flex items-center gap-1.5 border border-orange/20">
-            <span>MENUNGGU:</span>
-            <strong>3 Menunggu</strong>
-          </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[850px] text-left text-sm">
+            <thead><tr className="border-b border-border text-xs uppercase text-slate-400">
+              <th className="pb-3">Pengguna</th><th className="pb-3">Email</th><th className="pb-3">Role</th><th className="pb-3">Status</th><th className="pb-3">Bergabung</th><th className="pb-3 text-right">Tindakan</th>
+            </tr></thead>
+            <tbody className="divide-y divide-border">
+              {isLoading && <tr><td colSpan={6} className="py-8 text-center text-slate-500">Memuat pengguna...</td></tr>}
+              {!isLoading && !users.length && <tr><td colSpan={6} className="py-8 text-center text-slate-500">Tidak ada pengguna yang cocok.</td></tr>}
+              {!isLoading && users.map((user) => (
+                <tr key={user.id}>
+                  <td className="py-3"><div className="flex items-center gap-3"><Avatar name={user.full_name} size="sm" /><span><strong className="block">{user.full_name}</strong><small className="font-mono text-slate-400">{user.id.slice(0, 8)}</small></span></div></td>
+                  <td className="py-3 text-slate-600">{user.email}</td>
+                  <td className="py-3"><Badge variant={user.role === 'admin' ? 'navy' : user.role === 'instructor' ? 'orange' : 'technology'}>{roleLabels[user.role]}</Badge></td>
+                  <td className="py-3"><Badge variant={user.is_active ? 'active' : 'in-review'}>{user.is_active ? 'Aktif' : 'Nonaktif'}</Badge></td>
+                  <td className="py-3 text-slate-500">{new Date(user.created_at).toLocaleDateString('id-ID')}</td>
+                  <td className="py-3 text-right">
+                    <div className="inline-flex flex-wrap justify-end gap-2">
+                      {user.instructor_requested && <Button size="sm" variant="orange" disabled={isSaving} onClick={() => void changeUser(user, 'instructor', user.is_active)}>Setujui pengajar</Button>}
+                      <Button size="sm" variant="outline" disabled={isSaving} onClick={() => setEditUser(user)} leftIcon={<UserCog className="h-4 w-4" />}>Ubah</Button>
+                      <Button size="sm" variant="outline" disabled={isSaving} onClick={() => void changeUser(user, user.role, !user.is_active)}>{user.is_active ? 'Nonaktifkan' : 'Aktifkan'}</Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      </div>
+        <footer className="flex items-center justify-between gap-3 text-sm text-slate-500">
+          <span>{total ? `${page * pageSize + 1}-${Math.min(total, (page + 1) * pageSize)} dari ${total}` : '0 pengguna'}</span>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" disabled={page === 0 || isLoading} onClick={() => setPage((value) => value - 1)}>Sebelumnya</Button>
+            <span className="self-center text-xs">{page + 1}/{totalPages}</span>
+            <Button variant="outline" size="sm" disabled={page + 1 >= totalPages || isLoading} onClick={() => setPage((value) => value + 1)}>Berikutnya</Button>
+          </div>
+        </footer>
+      </Card>
 
-      {/* 2. TABS: Manajemen Pengguna 24,850 / Kategori Kursus 18 */}
-      <div className="flex items-center gap-2 border-b border-border pb-2">
-        <button
-          type="button"
-          onClick={() => setActiveTab('users')}
-          className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all ${
-            activeTab === 'users'
-              ? 'bg-navy text-white shadow-sm'
-              : 'text-slate-600 hover:text-navy hover:bg-white'
-          }`}
-        >
-          Manajemen Pengguna (24,850)
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('categories')}
-          className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all ${
-            activeTab === 'categories'
-              ? 'bg-navy text-white shadow-sm'
-              : 'text-slate-600 hover:text-navy hover:bg-white'
-          }`}
-        >
-          Kategori Kursus (18)
-        </button>
-      </div>
-
-      {activeTab === 'users' ? (
-        <Card className="p-6 sm:p-8 space-y-6">
-          {/* Toolbar: Search, Roles Select, Status Select, Export CSV, Orange Button */}
-          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
-            <div className="flex flex-col sm:flex-row items-center gap-3 flex-1">
-              <div className="relative w-full sm:w-72">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-                  placeholder="Cari nama, email, atau ID pengguna..."
-                  className="w-full bg-slate-50 border border-border text-xs rounded-xl pl-9 pr-3.5 py-2.5 focus:outline-none focus:border-blue"
-                />
-              </div>
-
-              <select
-                value={roleFilter}
-                onChange={(e) => { setRoleFilter(e.target.value); setCurrentPage(1); }}
-                className="bg-slate-50 border border-border text-xs font-semibold rounded-xl px-3 py-2.5 text-slate-700 focus:outline-none focus:border-blue cursor-pointer w-full sm:w-auto"
-              >
-                <option value="all">Semua Peran</option>
-                <option value="peserta">Peserta</option>
-                <option value="instruktur">Instruktur</option>
-                <option value="admin">Admin</option>
+      {editUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/50 p-4">
+          <section role="dialog" aria-modal="true" className="w-full max-w-md space-y-4 rounded-2xl bg-white p-6">
+            <h2 className="text-lg font-bold text-text-heading">Ubah akun {editUser.full_name}</h2>
+            <label className="block text-xs font-semibold">Role
+              <select id="edit-user-role" defaultValue={editUser.role} className="mt-2 w-full rounded-xl border border-border p-3 text-sm">
+                <option value="participant">Peserta</option><option value="instructor">Pengajar</option><option value="admin">Admin</option>
               </select>
-
-              <select
-                value={statusFilter}
-                onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-                className="bg-slate-50 border border-border text-xs font-semibold rounded-xl px-3 py-2.5 text-slate-700 focus:outline-none focus:border-blue cursor-pointer w-full sm:w-auto"
-              >
-                <option value="all">Semua Status</option>
-                <option value="aktif">Aktif</option>
-                <option value="nonaktif">Nonaktif</option>
-              </select>
+            </label>
+            <label className="flex items-center gap-2 text-sm"><input id="edit-user-active" type="checkbox" defaultChecked={editUser.is_active} /> Akun aktif</label>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setEditUser(null)}>Batal</Button>
+              <Button variant="navy" disabled={isSaving} onClick={() => {
+                const role = document.getElementById('edit-user-role') as HTMLSelectElement;
+                const active = document.getElementById('edit-user-active') as HTMLInputElement;
+                void changeUser(editUser, role.value as UserRole, active.checked);
+              }}>{isSaving ? 'Menyimpan...' : 'Simpan'}</Button>
             </div>
-
-            <div className="flex items-center gap-2.5">
-              <Button variant="outline" size="sm" onClick={exportUsers} leftIcon={<Download className="w-3.5 h-3.5" />}>
-                Ekspor CSV
-              </Button>
-              <Button
-                variant="orange"
-                size="sm"
-                onClick={() => setDialog({ type: 'user', name: '', email: '', role: 'Peserta' })}
-                leftIcon={<Plus className="w-3.5 h-3.5" />}
-              >
-                + Tambah Pengguna Baru
-              </Button>
-            </div>
-          </div>
-
-          {/* Table: PENGGUNA, ALAMAT EMAIL, PERAN (ROLE), STATUS AKUN, BERGABUNG, TINDAKAN */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-border text-slate-400 font-bold uppercase tracking-wider">
-                  <th className="pb-3">PENGGUNA</th>
-                  <th className="pb-3">ALAMAT EMAIL</th>
-                  <th className="pb-3">PERAN</th>
-                  <th className="pb-3">STATUS AKUN</th>
-                  <th className="pb-3">BERGABUNG</th>
-                  <th className="pb-3 text-right">TINDAKAN</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/60">
-                {pageUsers.length === 0 && (
-                  <tr><td colSpan={6} className="py-8 text-center text-slate-500">Tidak ada pengguna yang cocok dengan filter.</td></tr>
-                )}
-                {pageUsers.map((u) => (
-                  <tr key={u.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="py-3.5">
-                      <div className="flex items-center gap-3">
-                        <Avatar src={getUserAvatar(u.avatarId)} name={u.name} size="sm" />
-                        <div>
-                          <span className="font-bold text-text-heading block">{u.name}</span>
-                          <span className="text-[10px] text-slate-400 font-mono">ID: {u.id}</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-3.5 text-slate-600 font-medium">{u.email}</td>
-                    <td className="py-3.5">
-                      <Badge variant={getRoleBadgeVariant(u.role) as any} size="xs">
-                        {u.role}
-                      </Badge>
-                    </td>
-                    <td className="py-3.5">
-                      <span className={`inline-flex items-center gap-1 font-bold ${u.status === 'Aktif' ? 'text-green' : 'text-slate-400'}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${u.status === 'Aktif' ? 'bg-green' : 'bg-slate-400'}`} />
-                        <span>{u.status}</span>
-                      </span>
-                    </td>
-                    <td className="py-3.5 text-slate-500">{u.joined}</td>
-                    <td className="py-3.5 text-right">
-                      <div className="inline-flex items-center gap-2">
-                        <button
-                          type="button"
-                          className="text-slate-400 hover:text-blue p-1"
-                          title="Edit Pengguna"
-                          aria-label={`Edit ${u.name}`}
-                          onClick={() => setDialog({ type: 'user', id: u.id, name: u.name, email: u.email, role: u.role })}
-                        >
-                          <Edit className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          className="text-slate-400 hover:text-navy p-1"
-                          title="Ubah status akun"
-                          aria-label={`Ubah status ${u.name}`}
-                          onClick={() => setUsers((current) => current.map((user) => user.id === u.id
-                            ? { ...user, status: user.status === 'Aktif' ? 'Nonaktif' : 'Aktif' }
-                            : user))}
-                        >
-                          <MoreVertical className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Pagination */}
-          <div className="pt-4 border-t border-border flex items-center justify-between text-xs text-slate-500">
-            <span>Menampilkan {startEntry}-{endEntry} dari {filteredUsers.length} pengguna</span>
-            <div className="flex items-center gap-1.5">
-              <button type="button" onClick={() => setCurrentPage((page) => Math.max(1, page - 1))} className="p-1.5 rounded-lg border border-border bg-white text-slate-600 disabled:opacity-40" disabled={currentPage === 1}>
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <span className="px-2 font-bold text-navy">{currentPage} / {totalPages}</span>
-              <button type="button" onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))} className="p-1.5 rounded-lg border border-border bg-white text-slate-600 disabled:opacity-40" disabled={currentPage === totalPages}>
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        </Card>
-      ) : (
-        /* Kategori Kursus Tab */
-        <Card className="p-6 sm:p-8 space-y-6">
-          <div className="flex items-center justify-between pb-4 border-b border-border">
-            <div>
-              <h3 className="text-base font-bold text-text-heading">
-                Taksonomi Kategori Kurikulum
-              </h3>
-              <p className="text-xs text-slate-500">Atur hierarki topik untuk katalog kursus global</p>
-            </div>
-            <Button
-              variant="orange"
-              size="sm"
-              onClick={() => setDialog({ type: 'category', name: '', email: '', role: '' })}
-              leftIcon={<Plus className="w-3.5 h-3.5" />}
-            >
-              + Tambah Kategori
-            </Button>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-border text-slate-400 font-bold uppercase tracking-wider">
-                  <th className="pb-3">NAMA KATEGORI</th>
-                  <th className="pb-3">SLUG URL</th>
-                  <th className="pb-3">JUMLAH KURSUS</th>
-                  <th className="pb-3">STATUS</th>
-                  <th className="pb-3 text-right">TINDAKAN</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/60">
-                {categories.map((cat) => (
-                  <tr key={cat.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="py-3.5 font-bold text-text-heading">{cat.name}</td>
-                    <td className="py-3.5 font-mono text-slate-500">/courses?category={cat.slug}</td>
-                    <td className="py-3.5 font-bold text-navy">{cat.courseCount} Kursus</td>
-                    <td className="py-3.5">
-                      <Badge variant="active" size="xs">
-                        {cat.status}
-                      </Badge>
-                    </td>
-                    <td className="py-3.5 text-right">
-                      <div className="inline-flex items-center gap-2">
-                        <button
-                          type="button"
-                          aria-label={`Edit kategori ${cat.name}`}
-                          onClick={() => setDialog({ type: 'category', id: cat.id, name: cat.name, email: '', role: '' })}
-                          className="text-slate-400 hover:text-blue p-1"
-                        >
-                          <Edit className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          aria-label={`Hapus kategori ${cat.name}`}
-                          onClick={() => {
-                            if (window.confirm(`Hapus kategori "${cat.name}"?`)) {
-                              setCategories((current) => current.filter((category) => category.id !== cat.id));
-                            }
-                          }}
-                          className="text-slate-400 hover:text-red p-1"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+          </section>
+        </div>
       )}
-      {dialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/50 p-4" onMouseDown={(event) => {
-          if (event.target === event.currentTarget) setDialog(null);
-        }}>
-          <section role="dialog" aria-modal="true" aria-labelledby="admin-edit-title" className="w-full max-w-md rounded-2xl bg-white p-6 shadow-soft-lg">
-            <div className="mb-5 flex items-center justify-between">
-              <h2 id="admin-edit-title" className="text-lg font-bold text-text-heading">
-                {dialog.type === 'user' ? dialog.id ? 'Ubah Pengguna' : 'Tambah Pengguna' : dialog.id ? 'Ubah Kategori' : 'Tambah Kategori'}
-              </h2>
-              <button type="button" aria-label="Tutup formulir" onClick={() => setDialog(null)}><X className="h-5 w-5 text-slate-400" /></button>
-            </div>
-            <form onSubmit={saveDialog} className="space-y-4">
-              <label className="block text-xs font-semibold text-text-heading">
-                {dialog.type === 'user' ? 'Nama lengkap' : 'Nama kategori'}
-                <input required maxLength={100} value={dialog.name} onChange={(event) => setDialog({ ...dialog, name: event.target.value })} className="mt-1.5 w-full rounded-xl border border-border px-3 py-2.5 text-sm font-normal focus:border-blue focus:outline-none" />
+
+      {newInstructor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/50 p-4">
+          <section role="dialog" aria-modal="true" className="w-full max-w-md rounded-2xl bg-white p-6">
+            <h2 className="text-lg font-bold text-text-heading">Buat akun pengajar</h2>
+            <form onSubmit={createInstructor} className="mt-4 space-y-4">
+              <label className="block text-xs font-semibold">Nama lengkap
+                <input value={newInstructor.fullName} onChange={(event) => setNewInstructor({ ...newInstructor, fullName: event.target.value })} required className="mt-1.5 w-full rounded-xl border border-border p-3 text-sm" />
               </label>
-              {dialog.type === 'user' && (
-                <>
-                  <label className="block text-xs font-semibold text-text-heading">
-                    Alamat email
-                    <input type="email" required value={dialog.email} onChange={(event) => setDialog({ ...dialog, email: event.target.value })} className="mt-1.5 w-full rounded-xl border border-border px-3 py-2.5 text-sm font-normal focus:border-blue focus:outline-none" />
-                  </label>
-                  <label className="block text-xs font-semibold text-text-heading">
-                    Peran
-                    <select value={dialog.role} onChange={(event) => setDialog({ ...dialog, role: event.target.value })} className="mt-1.5 w-full rounded-xl border border-border bg-white px-3 py-2.5 text-sm font-normal focus:border-blue focus:outline-none">
-                      <option>Peserta</option><option>Instruktur</option><option>Admin</option>
-                    </select>
-                  </label>
-                </>
-              )}
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setDialog(null)}>Batal</Button>
-                <Button type="submit" variant="navy">Simpan</Button>
-              </div>
+              <label className="block text-xs font-semibold">Email
+                <input type="email" value={newInstructor.email} onChange={(event) => setNewInstructor({ ...newInstructor, email: event.target.value })} required className="mt-1.5 w-full rounded-xl border border-border p-3 text-sm" />
+              </label>
+              <label className="block text-xs font-semibold">Kata sandi sementara (min. 8 karakter)
+                <input type="password" minLength={8} value={newInstructor.password} onChange={(event) => setNewInstructor({ ...newInstructor, password: event.target.value })} required className="mt-1.5 w-full rounded-xl border border-border p-3 text-sm" />
+              </label>
+              {error && <p role="alert" className="text-xs text-red">{error}</p>}
+              <div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setNewInstructor(null)}>Batal</Button><Button type="submit" variant="navy" disabled={isSaving}>{isSaving ? 'Membuat...' : 'Buat akun'}</Button></div>
             </form>
           </section>
         </div>

@@ -39,7 +39,7 @@ export interface Lesson {
   id: string;
   title: string;
   duration: string;
-  type: 'video' | 'pdf' | 'quiz' | 'lab';
+  type: 'video' | 'pdf' | 'quiz' | 'lab' | 'text';
   isPreview?: boolean;
   completed?: boolean;
   videoDurationSeconds?: number;
@@ -71,6 +71,7 @@ export interface Course {
   rating: number;
   reviewCount: number;
   enrolledCount: number;
+  maxParticipants?: number | null;
   lessonsCount: number;
   totalDuration: string;
   isPopular?: boolean;
@@ -82,11 +83,18 @@ export interface Course {
   learningOutcomes: string[];
   requirements: string[];
   sections: CurriculumSection[];
+  thumbnailUrl?: string;
+  bannerUrl?: string;
 }
 
 export interface EnrolledCourseProgress {
   courseId: string;
   courseSlug: string;
+  courseTitle: string;
+  category: CourseCategory;
+  instructorName: string;
+  instructorAvatarUrl?: string;
+  thumbnailUrl?: string;
   progressPercent: number;
   completedLessons: number;
   totalLessons: number;
@@ -100,6 +108,7 @@ export interface EnrolledCourseProgress {
 
 export interface QuizQuestion {
   id: number;
+  databaseId?: string;
   topic: string;
   points: number;
   question: string;
@@ -110,6 +119,7 @@ export interface QuizQuestion {
   };
   options: {
     id: string;
+    databaseId?: string;
     text: string;
   }[];
   correctOptionId: string;
@@ -137,4 +147,3 @@ export interface QuizSubmission {
   timeTakenSeconds: number;
   submittedAt: string;
 }
-

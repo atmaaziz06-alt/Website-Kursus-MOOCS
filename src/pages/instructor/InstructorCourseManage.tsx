@@ -1,1288 +1,908 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import {
-  ArrowLeft,
-  ArrowDown,
-  ArrowUp,
-  CheckCircle2,
-  Clock,
-  Edit,
-  Trash2,
-  Move,
-  Plus,
-  Play,
-  FileText,
-  Terminal,
-  Download,
-  Search,
-  ExternalLink,
-  Copy,
-  ChevronDown,
-  Sparkles,
-  Bold,
-  Italic,
-  Strikethrough,
-  Heading2,
-  Heading3,
-  List,
-  Code,
-  Link as LinkIcon,
-  X,
-} from 'lucide-react';
-import { Card, Button, Input, Select, Badge, ProgressBar, Avatar } from '../../components/ui';
-import { primaryWebDevCourse } from '../../data/mockData';
-import { getCourseMedia, getUserAvatar } from '../../config/media';
-import { downloadCSV } from '../../utils/download';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Link, useLocation, useParams } from 'react-router-dom';
+import { ArrowDown, ArrowLeft, ArrowUp, BookOpen, FileText, Pencil, Plus, Send, Trash2, Upload } from 'lucide-react';
+import { Badge, Button, Card, Input, Select } from '../../components/ui';
+import { useAuth } from '../../context/AuthContext';
+import { getErrorMessage } from '../../lib/errors';
+import { requireSupabase } from '../../lib/supabase';
+import { getVideoEmbedUrl, validateLessonFile } from '../../utils/lessonMedia';
 
-type Module = { id: string; title: string; status: string; badgeColor: string };
-type Material = { id: string; moduleId: string; title: string; type: 'video' | 'pdf' | 'lab'; detail: string };
-type QuizItem = {
+type CourseRow = {
   id: string;
-  prompt: string;
-  options: { A: string; B: string; C: string; D: string };
-  correctOption: 'A' | 'B' | 'C' | 'D';
-  explanation: string;
-};
-type CreatedQuiz = { id: string; title: string; questions: number; duration: string; passingScore: number; items?: QuizItem[] };
-type QuizItemDraft = Omit<QuizItem, 'id'>;
-type EditorForm = {
-  type: 'module' | 'material' | 'quiz';
-  id?: string;
-  moduleId: string;
   title: string;
-  materialType: Material['type'];
-  detail: string;
-  questions: string;
-  duration: string;
-  passingScore: string;
+  slug: string;
+  description: string;
+  category_id: string | null;
+  level: string;
+  price: number;
+  status: string;
+  review_note: string | null;
+  thumbnail_path: string | null;
+};
+type ModuleRow = { id: string; course_id: string; title: string; position: number };
+type LessonRow = {
+  id: string;
+  module_id: string;
+  title: string;
+  type: 'video' | 'pdf' | 'lab' | 'text';
+  duration_minutes: number;
+  position: number;
+};
+type LessonContentRow = {
+  lesson_id: string;
+  content: string | null;
+  video_url: string | null;
+  file_path: string | null;
+};
+type QuizRow = {
+  id: string;
+  module_id: string | null;
+  title: string;
+  time_limit_minutes: number;
+  passing_score: number;
+  max_attempts: number;
+  is_published: boolean;
+};
+type QuestionRow = {
+  id: string;
+  quiz_id: string;
+  topic: string;
+  text: string;
+  code_snippet: unknown;
+  position: number;
+  points: number;
+};
+type QuestionOptionRow = { id: string; question_id: string; label: 'A' | 'B' | 'C' | 'D'; text: string };
+type QuestionKeyRow = { question_id: string; correct_option_id: string; explanation: string };
+type CategoryRow = { id: string; name: string };
+type EditorState = {
+  course: CourseRow;
+  modules: ModuleRow[];
+  lessons: LessonRow[];
+  lessonContents: LessonContentRow[];
+  quizzes: QuizRow[];
+  questions: QuestionRow[];
+  questionOptions: QuestionOptionRow[];
+  questionKeys: QuestionKeyRow[];
+  categories: CategoryRow[];
 };
 
-const initialModules: Module[] = [
-  { id: 'm-1', title: 'Modul 1: Dasar Web & Semantic HTML5', status: 'Selesai', badgeColor: 'active' },
-  { id: 'm-2', title: 'Modul 2: JavaScript ES6+ Modern & Pemrograman Asinkron', status: 'Selesai', badgeColor: 'active' },
-  { id: 'm-3', title: 'Modul 3: TypeScript untuk Aplikasi Frontend Modern', status: 'Selesai', badgeColor: 'active' },
-  { id: 'm-4', title: 'Modul 4: Arsitektur React & Frontend (Angkatan Aktif)', status: 'Modul Aktif', badgeColor: 'preview-free' },
-  { id: 'm-5', title: 'Modul 5: Microservices Backend dengan Node.js & Prisma', status: 'Sedang Ditinjau', badgeColor: 'in-review' },
-  { id: 'm-6', title: 'Modul 6: Deployment Cloud & Pipeline CI/CD', status: 'Draf', badgeColor: 'draft' },
-];
-
-const initialMaterials: Material[] = [
-  { id: 'material-video-15', moduleId: 'm-4', title: '15. Pendalaman useState, useEffect & Custom Hooks', type: 'video', detail: '28 menit' },
-  { id: 'material-pdf-15', moduleId: 'm-4', title: 'Modul-15-Hooks-Cheatsheet.pdf', type: 'pdf', detail: '1,2 MB' },
-  { id: 'material-lab-15', moduleId: 'm-4', title: 'Lab Interaktif: Sandbox Pengujian Custom Hook', type: 'lab', detail: 'Lab kode' },
-];
-const initialSyllabus = `### Bagian 1: Dasar Web dan DOM
-- Elemen HTML semantik dan aksesibilitas
-- CSS Grid dan Flexbox responsif
-
-### Bagian 2: React dan Pengelolaan State
-- Hooks React dan siklus pembaruan
-- Praktik membangun aplikasi interaktif`;
-
-const loadStoredArray = <T,>(key: string, fallback: T[], isValid: (value: unknown) => value is T): T[] => {
-  try {
-    const saved = localStorage.getItem(key);
-    if (!saved) return fallback;
-    const parsed: unknown = JSON.parse(saved);
-    if (!Array.isArray(parsed) || !parsed.every(isValid)) {
-      throw new Error(`Data tersimpan untuk ${key} tidak valid.`);
-    }
-    return parsed;
-  } catch (error) {
-    console.error(`Tidak dapat memuat ${key}.`, error);
-    return fallback;
-  }
-};
-
-const loadStoredCourseMeta = (key: string): { title?: string; synopsis?: string; syllabus?: string } => {
-  try {
-    const saved = localStorage.getItem(key);
-    if (!saved) return {};
-    const parsed: unknown = JSON.parse(saved);
-    if (typeof parsed !== 'object' || parsed === null) return {};
-    const meta = parsed as Record<string, unknown>;
-    return {
-      ...(typeof meta.title === 'string' ? { title: meta.title } : {}),
-      ...(typeof meta.synopsis === 'string' ? { synopsis: meta.synopsis } : {}),
-      ...(typeof meta.syllabus === 'string' ? { syllabus: meta.syllabus } : {}),
-    };
-  } catch (error) {
-    console.error(`Tidak dapat memuat ${key}.`, error);
-    return {};
-  }
-};
-
-const isModule = (value: unknown): value is Module => {
-  if (typeof value !== 'object' || value === null) return false;
-  const module = value as Record<string, unknown>;
-  return typeof module.id === 'string' && typeof module.title === 'string' &&
-    typeof module.status === 'string' && typeof module.badgeColor === 'string';
-};
-
-const isMaterial = (value: unknown): value is Material => {
-  if (typeof value !== 'object' || value === null) return false;
-  const material = value as Record<string, unknown>;
-  return typeof material.id === 'string' && typeof material.moduleId === 'string' &&
-    typeof material.title === 'string' && typeof material.detail === 'string' &&
-    (material.type === 'video' || material.type === 'pdf' || material.type === 'lab');
-};
-
-const isCreatedQuiz = (value: unknown): value is CreatedQuiz => {
-  if (typeof value !== 'object' || value === null) return false;
-  const quiz = value as Record<string, unknown>;
-  return typeof quiz.id === 'string' && typeof quiz.title === 'string' &&
-    typeof quiz.questions === 'number' && typeof quiz.duration === 'string' &&
-    typeof quiz.passingScore === 'number' &&
-    (quiz.items === undefined || (Array.isArray(quiz.items) && quiz.items.every(isQuizItem)));
-};
-
-const isQuizItem = (value: unknown): value is QuizItem => {
-  if (typeof value !== 'object' || value === null) return false;
-  const item = value as Record<string, unknown>;
-  if (typeof item.options !== 'object' || item.options === null) return false;
-  const options = item.options as Record<string, unknown>;
-  return typeof item.id === 'string' && typeof item.prompt === 'string' &&
-    ['A', 'B', 'C', 'D'].every((key) => typeof options[key] === 'string') &&
-    ['A', 'B', 'C', 'D'].includes(String(item.correctOption)) &&
-    typeof item.explanation === 'string';
-};
+const errorText = (error: unknown) =>
+  error instanceof Error ? error.message : getErrorMessage(error);
 
 export const InstructorCourseManage: React.FC = () => {
-  const { id } = useParams();
-  const navigate = useNavigate();
-  const course = primaryWebDevCourse;
-  const courseMedia = getCourseMedia(course.slug);
-  const [storedCourseMeta] = useState(() => loadStoredCourseMeta(`eduspace_course_meta_${id ?? course.slug}`));
+  const { id = '' } = useParams();
+  const location = useLocation();
+  const { user } = useAuth();
+  const navigationError = (location.state as { error?: unknown } | null)?.error;
+  const [data, setData] = useState<EditorState | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState(typeof navigationError === 'string' ? navigationError : '');
+  const [notice, setNotice] = useState('');
+  const [moduleTitle, setModuleTitle] = useState('');
+  const [lessonModuleId, setLessonModuleId] = useState('');
+  const [lessonTitle, setLessonTitle] = useState('');
+  const [lessonType, setLessonType] = useState<LessonRow['type']>('text');
+  const [lessonDuration, setLessonDuration] = useState('10');
+  const [lessonContent, setLessonContent] = useState('');
+  const [lessonVideoUrl, setLessonVideoUrl] = useState('');
+  const [lessonFile, setLessonFile] = useState<File | null>(null);
+  const [editingLessonId, setEditingLessonId] = useState('');
+  const [editingLessonTitle, setEditingLessonTitle] = useState('');
+  const [editingLessonDuration, setEditingLessonDuration] = useState('10');
+  const [editingLessonContent, setEditingLessonContent] = useState('');
+  const [editingLessonVideoUrl, setEditingLessonVideoUrl] = useState('');
+  const [editingLessonFile, setEditingLessonFile] = useState<File | null>(null);
+  const [quizModuleId, setQuizModuleId] = useState('');
+  const [quizTitle, setQuizTitle] = useState('');
+  const [quizTimeLimit, setQuizTimeLimit] = useState('20');
+  const [quizPassingScore, setQuizPassingScore] = useState('80');
+  const [questionQuizId, setQuestionQuizId] = useState('');
+  const [questionText, setQuestionText] = useState('');
+  const [questionTopic, setQuestionTopic] = useState('');
+  const [questionOptions, setQuestionOptions] = useState({ A: '', B: '', C: '', D: '' });
+  const [correctLabel, setCorrectLabel] = useState('A');
+  const [questionExplanation, setQuestionExplanation] = useState('');
+  const [questionPoints, setQuestionPoints] = useState('10');
+  const [questionCode, setQuestionCode] = useState('');
+  const [editingQuestionId, setEditingQuestionId] = useState('');
 
-  const [activeTab, setActiveTab] = useState<'info' | 'curriculum' | 'quizzes' | 'students' | 'analytics'>('info');
-  const [courseTitle, setCourseTitle] = useState(storedCourseMeta.title ?? course.title);
-  const [synopsis, setSynopsis] = useState(storedCourseMeta.synopsis ??
-    'Bootcamp komprehensif untuk mempelajari pengembangan web full-stack modern dengan React 18, TypeScript, Node.js, dan microservices berbasis container.'
-  );
-  const [syllabus, setSyllabus] = useState(storedCourseMeta.syllabus ?? initialSyllabus);
-  const syllabusRef = useRef<HTMLTextAreaElement>(null);
+  const reload = useCallback(async () => {
+    const client = requireSupabase();
+    const { data: course, error: courseError } = await client
+      .from('courses')
+      .select('id, title, slug, description, category_id, level, price, status, review_note, thumbnail_path')
+      .eq('id', id)
+      .maybeSingle();
+    if (courseError) throw new Error(getErrorMessage(courseError));
+    if (!course) throw new Error('Kursus tidak ditemukan atau kamu tidak memiliki akses.');
 
-  // Curriculum draggable modules state
-  const [modules, setModules] = useState(() => loadStoredArray('eduspace_curriculum_modules', initialModules, isModule));
-  const [materials, setMaterials] = useState(() => loadStoredArray('eduspace_curriculum_materials', initialMaterials, isMaterial));
-  const [createdQuizzes, setCreatedQuizzes] = useState(() => loadStoredArray('eduspace_created_quizzes', [], isCreatedQuiz));
-  const [editorForm, setEditorForm] = useState<EditorForm | null>(null);
-  const [isReordering, setIsReordering] = useState(false);
-  const [courseFeedback, setCourseFeedback] = useState('');
-  const [quizItemEditor, setQuizItemEditor] = useState<{ quizId: string; itemId?: string } | null>(null);
-  const [quizItemDraft, setQuizItemDraft] = useState<QuizItemDraft>({
-    prompt: '',
-    options: { A: '', B: '', C: '', D: '' },
-    correctOption: 'A',
-    explanation: '',
-  });
-
-  const insertSyllabusFormat = (prefix: string, suffix = '') => {
-    const textarea = syllabusRef.current;
-    if (!textarea) return;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const selected = syllabus.slice(start, end) || 'teks';
-    const replacement = `${prefix}${selected}${suffix}`;
-    const updated = `${syllabus.slice(0, start)}${replacement}${syllabus.slice(end)}`;
-    setSyllabus(updated);
-    requestAnimationFrame(() => {
-      textarea.focus();
-      textarea.setSelectionRange(start + replacement.length, start + replacement.length);
+    const [modulesResult, lessonsResult, quizzesResult, categoriesResult] = await Promise.all([
+      client.from('modules').select('id, course_id, title, position').eq('course_id', id).order('position'),
+      client.from('lessons').select('id, module_id, title, type, duration_minutes, position').eq('course_id', id).order('position'),
+      client.from('quizzes').select('id, module_id, title, time_limit_minutes, passing_score, max_attempts, is_published')
+        .eq('course_id', id).order('created_at'),
+      client.from('categories').select('id, name').order('name'),
+    ]);
+    if (modulesResult.error) throw new Error(getErrorMessage(modulesResult.error));
+    if (lessonsResult.error) throw new Error(getErrorMessage(lessonsResult.error));
+    if (quizzesResult.error) throw new Error(getErrorMessage(quizzesResult.error));
+    if (categoriesResult.error) throw new Error(getErrorMessage(categoriesResult.error));
+    const lessonIds = (lessonsResult.data ?? []).map((lesson) => lesson.id);
+    const contentsResult = lessonIds.length
+      ? await client.from('lesson_contents').select('lesson_id, content, video_url, file_path').in('lesson_id', lessonIds)
+      : { data: [], error: null };
+    if (contentsResult.error) throw new Error(getErrorMessage(contentsResult.error));
+    const quizIds = (quizzesResult.data ?? []).map((quiz) => quiz.id);
+    const questionsResult = quizIds.length
+      ? await client.from('questions').select('id, quiz_id, topic, text, code_snippet, position, points')
+        .in('quiz_id', quizIds).order('position')
+      : { data: [], error: null };
+    if (questionsResult.error) throw new Error(getErrorMessage(questionsResult.error));
+    const questionIds = (questionsResult.data ?? []).map((question) => question.id);
+    const [optionsResult, keysResult] = questionIds.length
+      ? await Promise.all([
+        client.from('question_options').select('id, question_id, label, text').in('question_id', questionIds),
+        client.from('question_keys').select('question_id, correct_option_id, explanation').in('question_id', questionIds),
+      ])
+      : [{ data: [], error: null }, { data: [], error: null }];
+    if (optionsResult.error) throw new Error(getErrorMessage(optionsResult.error));
+    if (keysResult.error) throw new Error(getErrorMessage(keysResult.error));
+    setData({
+      course,
+      modules: modulesResult.data ?? [],
+      lessons: lessonsResult.data ?? [],
+      lessonContents: contentsResult.data ?? [],
+      quizzes: quizzesResult.data ?? [],
+      questions: questionsResult.data ?? [],
+      questionOptions: optionsResult.data ?? [],
+      questionKeys: keysResult.data ?? [],
+      categories: categoriesResult.data ?? [],
     });
-  };
-
-  // Drag and drop handler
-  const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
+  }, [id]);
 
   useEffect(() => {
-    localStorage.setItem('eduspace_curriculum_modules', JSON.stringify(modules));
-  }, [modules]);
+    setIsLoading(true);
+    if (typeof navigationError !== 'string') setError('');
+    void reload()
+      .catch((loadError: unknown) => setError(errorText(loadError)))
+      .finally(() => setIsLoading(false));
+  }, [navigationError, reload]);
 
-  useEffect(() => {
-    localStorage.setItem('eduspace_curriculum_materials', JSON.stringify(materials));
-  }, [materials]);
-
-  useEffect(() => {
-    localStorage.setItem('eduspace_created_quizzes', JSON.stringify(createdQuizzes));
-  }, [createdQuizzes]);
-
-  const handleDragStart = (idx: number) => {
-    setDraggedIdx(idx);
-  };
-
-  const handleDragOver = (e: React.DragEvent, idx: number) => {
-    e.preventDefault();
-    if (draggedIdx === null || draggedIdx === idx) return;
-    const newItems = [...modules];
-    const item = newItems.splice(draggedIdx, 1)[0];
-    newItems.splice(idx, 0, item);
-    setDraggedIdx(idx);
-    setModules(newItems);
-  };
-
-  const moveModule = (index: number, direction: -1 | 1) => {
-    const targetIndex = index + direction;
-    if (targetIndex < 0 || targetIndex >= modules.length) return;
-    setModules((current) => {
-      const reordered = [...current];
-      [reordered[index], reordered[targetIndex]] = [reordered[targetIndex], reordered[index]];
-      return reordered;
-    });
-  };
-
-  const openEditor = (form: Partial<EditorForm> & Pick<EditorForm, 'type'>) => {
-    setEditorForm({
-      type: form.type,
-      id: form.id,
-      moduleId: form.moduleId || modules[0]?.id || '',
-      title: form.title || '',
-      materialType: form.materialType || 'video',
-      detail: form.detail || '',
-      questions: form.questions || '10',
-      duration: form.duration || '15',
-      passingScore: form.passingScore || '70',
-    });
-  };
-
-  const saveEditorForm = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!editorForm || !editorForm.title.trim()) return;
-
-    if (editorForm.type === 'module') {
-      if (editorForm.id) {
-        setModules((current) => current.map((module) => module.id === editorForm.id
-          ? { ...module, title: editorForm.title.trim() }
-          : module));
-      } else {
-        setModules((current) => [...current, {
-          id: `m-${Date.now()}`,
-          title: editorForm.title.trim(),
-          status: 'Draf',
-          badgeColor: 'draft',
-        }]);
-      }
-    } else if (editorForm.type === 'material') {
-      const savedMaterial: Material = {
-        id: editorForm.id || `material-${Date.now()}`,
-        moduleId: editorForm.moduleId,
-        title: editorForm.title.trim(),
-        type: editorForm.materialType,
-        detail: editorForm.detail.trim() || (editorForm.materialType === 'video' ? 'Video' : editorForm.materialType === 'pdf' ? 'PDF' : 'Lab kode'),
-      };
-      setMaterials((current) => editorForm.id
-        ? current.map((material) => material.id === editorForm.id ? savedMaterial : material)
-        : [...current, savedMaterial]);
-    } else {
-      const questions = Number(editorForm.questions);
-      const passingScore = Number(editorForm.passingScore);
-      if (!Number.isInteger(questions) || questions < 1 || !Number.isFinite(passingScore) || passingScore < 0 || passingScore > 100) return;
-      setCreatedQuizzes((current) => [...current, {
-        id: `quiz-${Date.now()}`,
-        title: editorForm.title.trim(),
-        questions,
-        duration: `${editorForm.duration} menit`,
-        passingScore,
-      }]);
-    }
-    setEditorForm(null);
-  };
-
-  const openQuizItemEditor = (quiz: CreatedQuiz, item?: QuizItem) => {
-    setQuizItemDraft(item
-      ? {
-        prompt: item.prompt,
-        options: { ...item.options },
-        correctOption: item.correctOption,
-        explanation: item.explanation,
-      }
-      : {
-        prompt: '',
-        options: { A: '', B: '', C: '', D: '' },
-        correctOption: 'A',
-        explanation: '',
-      });
-    setQuizItemEditor({ quizId: quiz.id, itemId: item?.id });
-  };
-
-  const saveQuizItem = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!quizItemEditor) return;
-    const quiz = createdQuizzes.find((item) => item.id === quizItemEditor.quizId);
-    if (!quiz) return;
-    const currentItems = quiz.items ?? [];
-    if (!quizItemEditor.itemId && currentItems.length >= quiz.questions) return;
-
-    const savedItem: QuizItem = {
-      ...quizItemDraft,
-      id: quizItemEditor.itemId ?? `question-${Date.now()}`,
-      prompt: quizItemDraft.prompt.trim(),
-      options: {
-        A: quizItemDraft.options.A.trim(),
-        B: quizItemDraft.options.B.trim(),
-        C: quizItemDraft.options.C.trim(),
-        D: quizItemDraft.options.D.trim(),
-      },
-      explanation: quizItemDraft.explanation.trim(),
-    };
-    setCreatedQuizzes((current) => current.map((item) => {
-      if (item.id !== quiz.id) return item;
-      const items = item.items ?? [];
-      return {
-        ...item,
-        items: quizItemEditor.itemId
-          ? items.map((question) => question.id === quizItemEditor.itemId ? savedItem : question)
-          : [...items, savedItem],
-      };
-    }));
-    setQuizItemEditor(null);
-  };
-
-  const removeQuizItem = (quiz: CreatedQuiz, item: QuizItem) => {
-    if (!window.confirm(`Hapus pertanyaan "${item.prompt}"?`)) return;
-    setCreatedQuizzes((current) => current.map((entry) => entry.id === quiz.id
-      ? { ...entry, items: (entry.items ?? []).filter((question) => question.id !== item.id) }
-      : entry));
-  };
-
-  const removeModule = (moduleId: string) => {
-    const module = modules.find((item) => item.id === moduleId);
-    if (!module || !window.confirm(`Hapus "${module.title}" beserta seluruh materinya?`)) return;
-    setModules((current) => current.filter((item) => item.id !== moduleId));
-    setMaterials((current) => current.filter((item) => item.moduleId !== moduleId));
-  };
-
-  const removeMaterial = (materialId: string) => {
-    const material = materials.find((item) => item.id === materialId);
-    if (!material || !window.confirm(`Hapus materi "${material.title}"?`)) return;
-    setMaterials((current) => current.filter((item) => item.id !== materialId));
-  };
-
-  // Student table filter state
-  const [studentFilter, setStudentFilter] = useState<'all' | 'active' | 'completed' | 'at-risk'>('all');
-  const [studentSearch, setStudentSearch] = useState('');
-
-  const enrolledStudents = [
-    { name: 'Dian Paramitha', avatarId: 'dian-paramitha', enrolledDate: '12 Jan 2025', progress: 85, quizAvg: 92.4, lastActive: '2 jam lalu' },
-    { name: 'Ahmad Fauzi', avatarId: 'ahmad-fauzi', enrolledDate: '18 Jan 2025', progress: 65, quizAvg: 88.0, lastActive: 'Kemarin' },
-    { name: 'Budi Santoso', avatarId: 'budi-santoso', enrolledDate: '05 Jan 2025', progress: 100, isCompleted: true, quizAvg: 95.0, lastActive: '3 hari lalu' },
-    { name: 'Sarah Jenkins', avatarId: 'usr-84920', enrolledDate: '22 Feb 2025', progress: 40, quizAvg: 78.5, lastActive: '5 hari lalu', isAtRisk: true },
-  ];
-  const filteredEnrolledStudents = enrolledStudents.filter((student) => {
-    const query = studentSearch.trim().toLowerCase();
-    if (query && !student.name.toLowerCase().includes(query)) return false;
-    if (studentFilter === 'completed' && !student.isCompleted) return false;
-    if (studentFilter === 'at-risk' && !student.isAtRisk) return false;
-    if (studentFilter === 'active' && (student.isCompleted || student.isAtRisk)) return false;
-    return true;
-  });
-
-  const saveCourseStatus = (status: 'draft' | 'published') => {
+  const runAction = async (action: () => Promise<void>, successMessage: string) => {
+    setError('');
+    setNotice('');
+    setIsSaving(true);
     try {
-      localStorage.setItem(`eduspace_course_meta_${id ?? course.slug}`, JSON.stringify({
-        title: courseTitle,
-        synopsis,
-        syllabus,
-        status,
-        updatedAt: new Date().toISOString(),
-      }));
-      setCourseFeedback(status === 'draft' ? 'Draf kursus berhasil disimpan.' : 'Perubahan kursus berhasil diterbitkan.');
-    } catch (error) {
-      console.error('Gagal menyimpan perubahan kursus', error);
-      setCourseFeedback('Perubahan kursus tidak dapat disimpan di perangkat ini.');
+      await action();
+      await reload();
+      setNotice(successMessage);
+    } catch (actionError) {
+      setError(errorText(actionError));
+    } finally {
+      setIsSaving(false);
     }
+  };
+
+  const saveCourse = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!data) return;
+    const fields = new FormData(event.currentTarget);
+    void runAction(async () => {
+      const { error: saveError } = await requireSupabase().from('courses').update({
+        title: String(fields.get('title')).trim(),
+        description: String(fields.get('description')).trim(),
+        category_id: String(fields.get('category_id')) || null,
+        level: String(fields.get('level')),
+        price: Number(fields.get('price')),
+        original_price: Number(fields.get('price')),
+      }).eq('id', id);
+      if (saveError) throw new Error(getErrorMessage(saveError));
+    }, 'Informasi kursus tersimpan.');
+  };
+
+  const uploadThumbnail = (file: File | null) => {
+    if (!file || !data || !user) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 2 * 1024 * 1024) {
+      setError('Thumbnail harus berupa JPG, PNG, atau WebP dan maksimal 2 MB.');
+      return;
+    }
+    void runAction(async () => {
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '-');
+      const path = `${user.id}/${id}/${crypto.randomUUID()}-${safeName}`;
+      const client = requireSupabase();
+      const { error: uploadError } = await client.storage.from('course-thumbnails').upload(path, file, {
+        contentType: file.type,
+        upsert: false,
+      });
+      if (uploadError) throw new Error(getErrorMessage(uploadError));
+      const { error: updateError } = await client.from('courses').update({ thumbnail_path: path }).eq('id', id);
+      if (updateError) {
+        const { error: removeError } = await client.storage.from('course-thumbnails').remove([path]);
+        if (removeError) console.error('Thumbnail terunggah namun gagal dibersihkan setelah metadata gagal disimpan.', removeError);
+        throw new Error(getErrorMessage(updateError));
+      }
+      if (data.course.thumbnail_path) {
+        const { error: removeError } = await client.storage.from('course-thumbnails').remove([data.course.thumbnail_path]);
+        if (removeError) throw new Error(`Thumbnail baru tersimpan, tetapi thumbnail lama gagal dihapus: ${getErrorMessage(removeError)}`);
+      }
+    }, 'Thumbnail tersimpan.');
+  };
+
+  const addModule = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!data || !moduleTitle.trim()) return;
+    void runAction(async () => {
+      const { error: insertError } = await requireSupabase().from('modules').insert({
+        course_id: id,
+        title: moduleTitle.trim(),
+        position: data.modules.length,
+      });
+      if (insertError) throw new Error(getErrorMessage(insertError));
+      setModuleTitle('');
+    }, 'Modul ditambahkan.');
+  };
+
+  const deleteModule = (moduleId: string) => {
+    if (!window.confirm('Hapus modul beserta materi dan kuis di dalamnya?')) return;
+    void runAction(async () => {
+      const { error: deleteError } = await requireSupabase().from('modules').delete().eq('id', moduleId);
+      if (deleteError) throw new Error(getErrorMessage(deleteError));
+    }, 'Modul dihapus.');
+  };
+
+  const renameModule = (module: ModuleRow) => {
+    const title = window.prompt('Nama modul', module.title)?.trim();
+    if (!title || title === module.title) return;
+    void runAction(async () => {
+      const { error: updateError } = await requireSupabase().from('modules')
+        .update({ title }).eq('id', module.id);
+      if (updateError) throw new Error(getErrorMessage(updateError));
+    }, 'Nama modul diperbarui.');
+  };
+
+  const renameLesson = (lesson: LessonRow) => {
+    const title = window.prompt('Judul materi', lesson.title)?.trim();
+    if (!title || title === lesson.title) return;
+    void runAction(async () => {
+      const { error: updateError } = await requireSupabase().from('lessons')
+        .update({ title }).eq('id', lesson.id);
+      if (updateError) throw new Error(getErrorMessage(updateError));
+    }, 'Judul materi diperbarui.');
+  };
+
+  const editLesson = (lesson: LessonRow) => {
+    const content = data?.lessonContents.find((item) => item.lesson_id === lesson.id);
+    setEditingLessonId(lesson.id);
+    setEditingLessonTitle(lesson.title);
+    setEditingLessonDuration(String(lesson.duration_minutes));
+    setEditingLessonContent(content?.content ?? '');
+    setEditingLessonVideoUrl(content?.video_url ?? '');
+    setEditingLessonFile(null);
+  };
+
+  const saveLesson = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!data || !editingLessonId || !editingLessonTitle.trim()) return;
+    const lesson = data.lessons.find((item) => item.id === editingLessonId);
+    if (!lesson) return;
+    if (lesson.type === 'pdf' && !data.lessonContents.find((item) => item.lesson_id === lesson.id)?.file_path && !editingLessonFile) {
+      setError('Pilih berkas PDF untuk materi bertipe PDF.');
+      return;
+    }
+    if (lesson.type === 'video' && !editingLessonVideoUrl.trim() &&
+      !data.lessonContents.find((item) => item.lesson_id === lesson.id)?.file_path && !editingLessonFile) {
+      setError('Isi URL video atau pilih berkas video.');
+      return;
+    }
+    if (lesson.type === 'video' && editingLessonVideoUrl.trim() && !getVideoEmbedUrl(editingLessonVideoUrl.trim())) {
+      setError('Gunakan tautan YouTube atau Vimeo yang valid, atau unggah video MP4/WebM.');
+      return;
+    }
+    if (lesson.type === 'video' && editingLessonVideoUrl.trim() && editingLessonFile) {
+      setError('Pilih tautan video atau berkas video, jangan keduanya sekaligus.');
+      return;
+    }
+    if (editingLessonFile) {
+      const fileError = validateLessonFile(editingLessonFile, lesson.type);
+      if (fileError) {
+        setError(fileError);
+        return;
+      }
+    }
+    if (lesson.type === 'pdf' && editingLessonFile && editingLessonFile.type !== 'application/pdf') {
+      setError('Materi bertipe PDF hanya menerima berkas PDF.');
+      return;
+    }
+
+    void runAction(async () => {
+      const client = requireSupabase();
+      const currentContent = data.lessonContents.find((item) => item.lesson_id === lesson.id);
+      let newFilePath: string | null = null;
+      if (editingLessonFile) {
+        const safeName = editingLessonFile.name.replace(/[^a-zA-Z0-9._-]/g, '-');
+        newFilePath = `${id}/${lesson.id}/${crypto.randomUUID()}-${safeName}`;
+        const { error: uploadError } = await client.storage.from('lesson-files').upload(newFilePath, editingLessonFile, {
+          contentType: editingLessonFile.type,
+          upsert: false,
+        });
+        if (uploadError) throw new Error(getErrorMessage(uploadError));
+      }
+
+      const { error: lessonError } = await client.from('lessons').update({
+        title: editingLessonTitle.trim(),
+        duration_minutes: Math.max(0, Number(editingLessonDuration) || 0),
+      }).eq('id', lesson.id);
+      if (lessonError) {
+        if (newFilePath) {
+          const { error: cleanupError } = await client.storage.from('lesson-files').remove([newFilePath]);
+          if (cleanupError) console.error('Berkas materi baru tertinggal setelah perubahan materi gagal.', cleanupError);
+        }
+        throw new Error(getErrorMessage(lessonError));
+      }
+
+      const { error: contentError } = await client.from('lesson_contents').upsert({
+        lesson_id: lesson.id,
+        content: editingLessonContent.trim() || null,
+        video_url: editingLessonVideoUrl.trim() || null,
+        file_path: newFilePath ?? (lesson.type === 'video' && editingLessonVideoUrl.trim() ? null : currentContent?.file_path ?? null),
+      }, { onConflict: 'lesson_id' });
+      if (contentError) {
+        const { error: rollbackError } = await client.from('lessons').update({
+          title: lesson.title,
+          duration_minutes: lesson.duration_minutes,
+        }).eq('id', lesson.id);
+        if (rollbackError) console.error('Metadata materi perlu dipulihkan setelah isi materi gagal disimpan.', rollbackError);
+        if (newFilePath) {
+          const { error: cleanupError } = await client.storage.from('lesson-files').remove([newFilePath]);
+          if (cleanupError) console.error('Berkas materi baru tertinggal setelah isi materi gagal disimpan.', cleanupError);
+        }
+        throw new Error(getErrorMessage(contentError));
+      }
+
+      if (currentContent?.file_path && (newFilePath || (lesson.type === 'video' && editingLessonVideoUrl.trim()))) {
+        const { error: cleanupError } = await client.storage.from('lesson-files').remove([currentContent.file_path]);
+        if (cleanupError) throw new Error(`Materi tersimpan, tetapi berkas lama gagal dihapus: ${getErrorMessage(cleanupError)}`);
+      }
+      setEditingLessonId('');
+      setEditingLessonFile(null);
+    }, 'Materi diperbarui.');
+  };
+
+  const moveLesson = (lesson: LessonRow, direction: -1 | 1) => {
+    if (!data) return;
+    const moduleLessons = data.lessons.filter((item) => item.module_id === lesson.module_id);
+    const currentIndex = moduleLessons.findIndex((item) => item.id === lesson.id);
+    const swap = moduleLessons[currentIndex + direction];
+    if (!swap) return;
+    void runAction(async () => {
+      const client = requireSupabase();
+      const temporaryPosition = moduleLessons.length + 1;
+      const first = await client.from('lessons').update({ position: temporaryPosition }).eq('id', lesson.id);
+      if (first.error) throw new Error(getErrorMessage(first.error));
+      const second = await client.from('lessons').update({ position: lesson.position }).eq('id', swap.id);
+      if (second.error) throw new Error(getErrorMessage(second.error));
+      const third = await client.from('lessons').update({ position: swap.position }).eq('id', lesson.id);
+      if (third.error) throw new Error(getErrorMessage(third.error));
+    }, 'Urutan materi diperbarui.');
+  };
+
+  const addLesson = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!data || !lessonModuleId || !lessonTitle.trim()) return;
+    if (lessonType === 'pdf' && !lessonFile) {
+      setError('Pilih berkas PDF untuk materi bertipe PDF.');
+      return;
+    }
+    if (lessonType === 'video' && !lessonVideoUrl.trim() && !lessonFile) {
+      setError('Isi URL video atau pilih berkas video.');
+      return;
+    }
+    if (lessonType === 'video' && lessonVideoUrl.trim() && !getVideoEmbedUrl(lessonVideoUrl.trim())) {
+      setError('Gunakan tautan YouTube atau Vimeo yang valid, atau unggah video MP4/WebM.');
+      return;
+    }
+    if (lessonType === 'video' && lessonVideoUrl.trim() && lessonFile) {
+      setError('Pilih tautan video atau berkas video, jangan keduanya sekaligus.');
+      return;
+    }
+    if (lessonFile) {
+      const fileError = validateLessonFile(lessonFile, lessonType);
+      if (fileError) {
+        setError(fileError);
+        return;
+      }
+    }
+    void runAction(async () => {
+      const client = requireSupabase();
+      const moduleLessons = data.lessons.filter((lesson) => lesson.module_id === lessonModuleId);
+      const { data: lesson, error: insertError } = await client.from('lessons').insert({
+        module_id: lessonModuleId,
+        course_id: id,
+        title: lessonTitle.trim(),
+        type: lessonType,
+        duration_minutes: Math.max(0, Number(lessonDuration) || 0),
+        position: moduleLessons.length,
+      }).select('id').single();
+      if (insertError) throw new Error(getErrorMessage(insertError));
+
+      let filePath: string | null = null;
+      if (lessonFile) {
+        const safeName = lessonFile.name.replace(/[^a-zA-Z0-9._-]/g, '-');
+        filePath = `${id}/${lesson.id}/${crypto.randomUUID()}-${safeName}`;
+        const { error: uploadError } = await client.storage.from('lesson-files').upload(filePath, lessonFile, {
+          contentType: lessonFile.type,
+          upsert: false,
+        });
+        if (uploadError) {
+          await client.from('lessons').delete().eq('id', lesson.id);
+          throw new Error(getErrorMessage(uploadError));
+        }
+      }
+      const { error: contentError } = await client.from('lesson_contents').insert({
+        lesson_id: lesson.id,
+        content: lessonContent.trim() || null,
+        video_url: lessonVideoUrl.trim() || null,
+        file_path: filePath,
+      });
+      if (contentError) {
+        if (filePath) {
+          const { error: removeError } = await client.storage.from('lesson-files').remove([filePath]);
+          if (removeError) console.error('Berkas materi tertinggal setelah metadata gagal disimpan.', removeError);
+        }
+        await client.from('lessons').delete().eq('id', lesson.id);
+        throw new Error(getErrorMessage(contentError));
+      }
+      setLessonTitle('');
+      setLessonContent('');
+      setLessonVideoUrl('');
+      setLessonFile(null);
+    }, 'Materi ditambahkan.');
+  };
+
+  const deleteLesson = (lessonId: string) => {
+    void runAction(async () => {
+      const client = requireSupabase();
+      const { data: contents, error: contentError } = await client.from('lesson_contents')
+        .select('file_path').eq('lesson_id', lessonId).maybeSingle();
+      if (contentError) throw new Error(getErrorMessage(contentError));
+      const { error: deleteError } = await client.from('lessons').delete().eq('id', lessonId);
+      if (deleteError) throw new Error(getErrorMessage(deleteError));
+      if (contents?.file_path) {
+        const { error: removeError } = await client.storage.from('lesson-files').remove([contents.file_path]);
+        if (removeError) throw new Error(`Materi terhapus, tetapi berkas Storage gagal dihapus: ${getErrorMessage(removeError)}`);
+      }
+    }, 'Materi dihapus.');
+  };
+
+  const addQuiz = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!data || !quizTitle.trim()) return;
+    void runAction(async () => {
+      const { error: insertError } = await requireSupabase().from('quizzes').insert({
+        course_id: id,
+        module_id: quizModuleId || null,
+        title: quizTitle.trim(),
+        time_limit_minutes: Math.max(1, Number(quizTimeLimit) || 20),
+        passing_score: Math.min(100, Math.max(0, Number(quizPassingScore) || 80)),
+        max_attempts: 3,
+      });
+      if (insertError) throw new Error(getErrorMessage(insertError));
+      setQuizTitle('');
+    }, 'Kuis dibuat sebagai draf.');
+  };
+
+  const addQuestion = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!questionQuizId || !questionText.trim()) return;
+    const options = Object.fromEntries(
+      Object.entries(questionOptions).map(([label, text]) => [label, text.trim()]),
+    );
+    if (Object.values(options).some((text) => !text)) {
+      setError('Isi seluruh opsi jawaban A sampai D.');
+      return;
+    }
+    void runAction(async () => {
+      const codeSnippet = questionCode.trim()
+        ? { language: 'text', title: 'Kode', code: questionCode.trim() }
+        : null;
+      const client = requireSupabase();
+      const questionPayload = {
+        p_topic: questionTopic.trim(),
+        p_text: questionText.trim(),
+        p_options: options,
+        p_correct_label: correctLabel,
+        p_explanation: questionExplanation.trim(),
+        p_points: Math.max(0.01, Number(questionPoints) || 10),
+        p_code_snippet: codeSnippet,
+      };
+      const { error: questionError } = editingQuestionId
+        ? await client.rpc('update_quiz_question', {
+          p_question_id: editingQuestionId,
+          ...questionPayload,
+        })
+        : await client.rpc('create_quiz_question', {
+          p_quiz_id: questionQuizId,
+          ...questionPayload,
+        });
+      if (questionError) throw new Error(getErrorMessage(questionError));
+      setEditingQuestionId('');
+      setQuestionText('');
+      setQuestionTopic('');
+      setQuestionOptions({ A: '', B: '', C: '', D: '' });
+      setQuestionExplanation('');
+      setQuestionCode('');
+    }, editingQuestionId ? 'Soal diperbarui.' : 'Soal ditambahkan secara atomik.');
+  };
+
+  const editQuestion = (question: QuestionRow) => {
+    const options = data?.questionOptions.filter((option) => option.question_id === question.id) ?? [];
+    const key = data?.questionKeys.find((item) => item.question_id === question.id);
+    const correctOption = options.find((option) => option.id === key?.correct_option_id);
+    const snippet = question.code_snippet;
+    const code = typeof snippet === 'object' && snippet !== null && 'code' in snippet && typeof snippet.code === 'string'
+      ? snippet.code
+      : '';
+    setQuestionQuizId(question.quiz_id);
+    setEditingQuestionId(question.id);
+    setQuestionTopic(question.topic);
+    setQuestionText(question.text);
+    setQuestionOptions({
+      A: options.find((option) => option.label === 'A')?.text ?? '',
+      B: options.find((option) => option.label === 'B')?.text ?? '',
+      C: options.find((option) => option.label === 'C')?.text ?? '',
+      D: options.find((option) => option.label === 'D')?.text ?? '',
+    });
+    setCorrectLabel(correctOption?.label ?? 'A');
+    setQuestionExplanation(key?.explanation ?? '');
+    setQuestionPoints(String(question.points));
+    setQuestionCode(code);
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+  };
+
+  const deleteQuestion = (question: QuestionRow) => {
+    if (!window.confirm('Hapus soal ini? Tindakan ini tidak dapat dibatalkan.')) return;
+    void runAction(async () => {
+      const { error: deleteError } = await requireSupabase().rpc('delete_quiz_question', {
+        p_question_id: question.id,
+      });
+      if (deleteError) throw new Error(getErrorMessage(deleteError));
+      if (editingQuestionId === question.id) setEditingQuestionId('');
+    }, 'Soal dihapus.');
+  };
+
+  const toggleQuizPublication = (quiz: QuizRow) => {
+    void runAction(async () => {
+      const { error: updateError } = await requireSupabase().from('quizzes')
+        .update({ is_published: !quiz.is_published }).eq('id', quiz.id);
+      if (updateError) throw new Error(getErrorMessage(updateError));
+    }, quiz.is_published ? 'Kuis ditarik dari peserta.' : 'Kuis diterbitkan.');
+  };
+
+  const submitForReview = () => {
+    void runAction(async () => {
+      const { error: submitError } = await requireSupabase().rpc('submit_course_for_review', { p_course_id: id });
+      if (submitError) throw new Error(getErrorMessage(submitError));
+    }, 'Kursus diajukan untuk ditinjau admin.');
+  };
+
+  const moveModule = (module: ModuleRow, direction: -1 | 1) => {
+    if (!data) return;
+    const currentIndex = data.modules.findIndex((item) => item.id === module.id);
+    const swap = data.modules[currentIndex + direction];
+    if (!swap) return;
+    void runAction(async () => {
+      const client = requireSupabase();
+      const temporaryPosition = data.modules.length + 1;
+      const first = await client.from('modules').update({ position: temporaryPosition }).eq('id', module.id);
+      if (first.error) throw new Error(getErrorMessage(first.error));
+      const second = await client.from('modules').update({ position: module.position }).eq('id', swap.id);
+      if (second.error) throw new Error(getErrorMessage(second.error));
+      const third = await client.from('modules').update({ position: swap.position }).eq('id', module.id);
+      if (third.error) throw new Error(getErrorMessage(third.error));
+    }, 'Urutan modul diperbarui.');
+  };
+
+  if (isLoading) return <Card className="p-10 text-center text-sm text-slate-500">Memuat editor kursus...</Card>;
+  if (!data) {
+    return (
+      <Card className="p-8">
+        <p role="alert" className="text-sm text-red">{error || 'Kursus tidak tersedia.'}</p>
+        <Link to="/instructor" className="mt-4 inline-flex text-sm font-semibold text-blue">Kembali ke dasbor pengajar</Link>
+      </Card>
+    );
+  }
+
+  const thumbnailUrl = data.course.thumbnail_path
+    ? requireSupabase().storage.from('course-thumbnails').getPublicUrl(data.course.thumbnail_path).data.publicUrl
+    : '';
+  const statuses: Record<string, string> = {
+    draft: 'Draf',
+    pending_review: 'Menunggu tinjauan',
+    published: 'Terbit',
+    archived: 'Diarsipkan',
   };
 
   return (
-    <div className="max-w-[1400px] mx-auto space-y-6">
-      {/* 1. TOP HEADER & BREADCRUMB */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+    <div className="mx-auto max-w-[1100px] space-y-6">
+      <Link to="/instructor" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-blue">
+        <ArrowLeft className="h-4 w-4" /> Dasbor Pengajar
+      </Link>
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          {/* Breadcrumb */}
-          <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
-            <Link to="/instructor" className="hover:text-navy font-semibold">
-              ← Kursus Saya
-            </Link>
-            <span>/</span>
-            <span className="text-slate-400">Bootcamp Pengembangan Web 2025</span>
-          </div>
-
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-text-heading">
-              Kelola Kursus: Web Dev Bootcamp
-            </h1>
-            <span className="px-2.5 py-0.5 rounded-full bg-soft-blue text-blue text-xs font-bold uppercase">
-              ANGKATAN 2025
-            </span>
-            <Badge variant="active" size="xs">
-              Terbit (v2.4)
-            </Badge>
-          </div>
-          <span className="text-xs text-slate-400 block mt-1">
-            Terakhir diedit 15 menit lalu oleh John Smith
-          </span>
+          <p className="text-xs font-bold uppercase tracking-wider text-blue">Pengelolaan kursus</p>
+          <h1 className="mt-1 text-2xl font-extrabold text-text-heading">{data.course.title}</h1>
+          <p className="mt-1 text-sm text-slate-500">Slug: {data.course.slug}</p>
         </div>
+        <Badge variant={data.course.status === 'published' ? 'active' : 'in-review'}>{statuses[data.course.status] ?? data.course.status}</Badge>
+      </header>
 
-        {/* Action Buttons */}
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate('/courses/web-development-bootcamp-2025')}
-          >
-            Pratinjau sebagai Peserta
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => saveCourseStatus('draft')}>
-            Simpan sebagai Draf
-          </Button>
-          <Button variant="orange" size="sm" onClick={() => saveCourseStatus('published')}>
-            Terbitkan Perubahan
-          </Button>
+      {(error || notice || data.course.review_note) && (
+        <div className="space-y-2">
+          {error && <p role="alert" className="rounded-xl border border-red/20 bg-red/5 p-3 text-sm text-red">{error}</p>}
+          {notice && <p role="status" className="rounded-xl border border-green/20 bg-green-tint p-3 text-sm text-green">{notice}</p>}
+          {data.course.review_note && <p className="rounded-xl border border-orange/20 bg-orange-tint p-3 text-sm text-slate-700">Catatan admin: {data.course.review_note}</p>}
         </div>
-      </div>
-      {courseFeedback && <p role="status" className="text-xs font-semibold text-blue">{courseFeedback}</p>}
+      )}
 
-      {/* 2. TAB PILLS */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-border">
-        {[
-          { id: 'info', label: 'Info Kursus' },
-          { id: 'curriculum', label: 'Kurikulum & Materi (38 Pelajaran)' },
-          { id: 'quizzes', label: 'Kuis & Evaluasi (4 Kuis)' },
-          { id: 'students', label: 'Peserta Terdaftar (1.450)' },
-          { id: 'analytics', label: 'Analitik & Performa' },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            aria-pressed={activeTab === tab.id}
-            onClick={() => setActiveTab(tab.id as typeof activeTab)}
-            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all ${
-              activeTab === tab.id
-                ? 'bg-navy text-white shadow-sm'
-                : 'text-slate-600 hover:text-navy hover:bg-white'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <Card className="space-y-5 p-5 sm:p-7">
+        <div className="flex items-center gap-3">
+          <BookOpen className="h-5 w-5 text-blue" />
+          <h2 className="text-lg font-bold text-text-heading">Informasi dasar</h2>
+        </div>
+        <form onSubmit={saveCourse} className="space-y-4">
+          <Input name="title" label="Judul kursus" defaultValue={data.course.title} required maxLength={160} />
+          <label className="block text-xs font-semibold text-text-heading">
+            Deskripsi
+            <textarea name="description" rows={4} defaultValue={data.course.description} required maxLength={10000}
+              className="mt-1.5 w-full rounded-xl border border-border px-3 py-2.5 text-sm focus:border-blue focus:outline-none" />
+          </label>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Select name="category_id" label="Kategori" defaultValue={data.course.category_id ?? ''}
+              options={data.categories.map((category) => ({ value: category.id, label: category.name }))} />
+            <Select name="level" label="Tingkat" defaultValue={data.course.level}
+              options={['Beginner', 'Intermediate', 'Advanced', 'All Levels'].map((level) => ({ value: level, label: level }))} />
+            <Input name="price" label="Harga (Rupiah)" type="number" min="0" step="1000" defaultValue={String(data.course.price)} required />
+          </div>
+          <Button type="submit" variant="navy" disabled={isSaving}>Simpan informasi</Button>
+        </form>
 
-      {/* 3. MAIN WORKSPACE */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
-        {/* Left Column (8 cols): Wide Cards */}
-        <div className={['info', 'curriculum', 'students'].includes(activeTab) ? 'xl:col-span-12 space-y-8' : 'hidden'}>
-          {/* CARD 1: Course Basic Information */}
-          {activeTab === 'info' && (
-          <Card className="p-6 sm:p-8 space-y-6">
-            <div className="flex items-center justify-between pb-4 border-b border-border">
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-5 rounded-full bg-blue" />
-                <h3 className="text-base font-bold text-text-heading">
-                  Informasi Dasar Kursus
-                </h3>
-              </div>
-              <span className="px-2.5 py-0.5 rounded-full bg-soft-blue text-blue text-[11px] font-bold uppercase">
-                Silabus Terakreditasi
-              </span>
-            </div>
+        <div className="border-t border-border pt-5">
+          <h3 className="text-sm font-bold text-text-heading">Thumbnail kursus</h3>
+          {thumbnailUrl && <img src={thumbnailUrl} alt="Thumbnail kursus" className="mt-3 aspect-video w-full max-w-sm rounded-xl object-cover" />}
+          <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+            <Upload className="h-4 w-4" /> Unggah JPG, PNG, atau WebP (maks. 2 MB)
+            <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={isSaving}
+              onChange={(event) => uploadThumbnail(event.target.files?.[0] ?? null)} />
+          </label>
+        </div>
+      </Card>
 
-            <div className="space-y-4">
-              <Input
-                label="Judul Kursus (Wajib)*"
-                value={courseTitle}
-                onChange={(e) => setCourseTitle(e.target.value)}
-              />
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Select
-                  label="Kategori"
-                  options={[
-                    { value: 'development', label: 'Pemrograman & Rekayasa' },
-                    { value: 'technology', label: 'Teknologi & Cloud' },
-                    { value: 'design', label: 'Desain & UX' },
-                  ]}
-                  defaultValue="development"
-                />
-                <Select
-                  label="Tingkat Kesulitan"
-                  options={[
-                    { value: 'beginner', label: 'Pemula hingga Menengah' },
-                    { value: 'intermediate', label: 'Menengah' },
-                    { value: 'advanced', label: 'Lanjutan' },
-                  ]}
-                  defaultValue="beginner"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input
-                  label="Perkiraan Durasi & Tempo"
-                  defaultValue="24 Hours (8 Weeks recommended pacing)"
-                />
-                <Input
-                  label="Bahasa Pengantar"
-                  defaultValue="Bahasa Indonesia & English"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-text-heading mb-1.5 uppercase tracking-wide">
-                  Short Synopsis
-                </label>
-                <textarea
-                  value={synopsis}
-                  onChange={(e) => setSynopsis(e.target.value)}
-                  rows={3}
-                  className="w-full bg-white text-xs sm:text-sm rounded-xl border border-border p-3 focus:outline-none focus:border-blue"
-                />
-                <div className="text-right text-[11px] text-slate-400 mt-1">
-                  {synopsis.length} / 200 characters
+      <Card className="space-y-5 p-5 sm:p-7">
+        <div>
+          <h2 className="text-lg font-bold text-text-heading">Kurikulum</h2>
+          <p className="mt-1 text-xs text-slate-500">Perubahan modul dan materi langsung tersimpan di Supabase.</p>
+        </div>
+        <form onSubmit={addModule} className="flex flex-col gap-3 sm:flex-row">
+          <Input aria-label="Nama modul" placeholder="Nama modul baru" value={moduleTitle} onChange={(event) => setModuleTitle(event.target.value)} required />
+          <Button type="submit" variant="outline" disabled={isSaving} leftIcon={<Plus className="h-4 w-4" />}>Tambah modul</Button>
+        </form>
+        <div className="space-y-3">
+          {data.modules.map((module, index) => (
+            <section key={module.id} className="rounded-xl border border-border p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="font-bold text-text-heading">{index + 1}. {module.title}</h3>
+                <div className="flex items-center gap-1">
+                  <Button type="button" variant="outline" size="sm" disabled={isSaving} onClick={() => renameModule(module)} aria-label={`Ubah nama modul ${module.title}`}><Pencil className="h-4 w-4" /></Button>
+                  <Button type="button" variant="outline" size="sm" disabled={isSaving || index === 0} onClick={() => moveModule(module, -1)} aria-label="Pindah modul ke atas"><ArrowUp className="h-4 w-4" /></Button>
+                  <Button type="button" variant="outline" size="sm" disabled={isSaving || index === data.modules.length - 1} onClick={() => moveModule(module, 1)} aria-label="Pindah modul ke bawah"><ArrowDown className="h-4 w-4" /></Button>
+                  <Button type="button" variant="outline" size="sm" disabled={isSaving} onClick={() => deleteModule(module.id)} aria-label="Hapus modul"><Trash2 className="h-4 w-4 text-red" /></Button>
                 </div>
               </div>
-
-              {/* Rich Text Style Editor for Comprehensive Syllabus */}
-              <div>
-                <label className="block text-xs font-semibold text-text-heading mb-1.5 uppercase tracking-wide">
-                  Silabus Komprehensif & Capaian Pembelajaran
-                </label>
-                <div className="rounded-xl border border-border overflow-hidden bg-white">
-                  {/* Toolbar */}
-                  <div className="p-2 border-b border-border bg-slate-50 flex items-center gap-1 flex-wrap">
-                    {[
-                      { icon: <Bold className="w-3.5 h-3.5" />, title: 'Tebal', prefix: '**', suffix: '**' },
-                      { icon: <Italic className="w-3.5 h-3.5" />, title: 'Miring', prefix: '*', suffix: '*' },
-                      { icon: <Strikethrough className="w-3.5 h-3.5" />, title: 'Coret', prefix: '~~', suffix: '~~' },
-                      { icon: <Heading2 className="w-3.5 h-3.5" />, title: 'Judul 2', prefix: '## ', suffix: '' },
-                      { icon: <Heading3 className="w-3.5 h-3.5" />, title: 'Judul 3', prefix: '### ', suffix: '' },
-                      { icon: <List className="w-3.5 h-3.5" />, title: 'Daftar Berpoin', prefix: '- ', suffix: '' },
-                      { icon: <Code className="w-3.5 h-3.5" />, title: 'Blok kode', prefix: '```\n', suffix: '\n```' },
-                      { icon: <LinkIcon className="w-3.5 h-3.5" />, title: 'Tautan', prefix: '[', suffix: '](url)' },
-                    ].map((tool, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        title={tool.title}
-                        aria-label={tool.title}
-                        onClick={() => insertSyllabusFormat(tool.prefix, tool.suffix)}
-                        className="p-1.5 rounded-lg text-slate-600 hover:text-navy hover:bg-white border border-transparent hover:border-border transition-colors"
-                      >
-                        {tool.icon}
-                      </button>
-                    ))}
-                  </div>
-                  <textarea
-                    ref={syllabusRef}
-                    rows={4}
-                    value={syllabus}
-                    onChange={(event) => setSyllabus(event.target.value)}
-                    className="w-full p-4 text-xs sm:text-sm font-mono text-slate-700 focus:outline-none bg-white"
-                  />
-                </div>
-              </div>
-
-              {/* Course Showcase Banner & Thumbnail upload area */}
-              <div className="pt-4 border-t border-border">
-                <label className="block text-xs font-semibold text-text-heading mb-2 uppercase tracking-wide">
-                  Banner & Gambar Mini Kursus
-                </label>
-                <div className="flex flex-col sm:flex-row items-center gap-6 p-4 rounded-xl border border-dashed border-border bg-slate-50">
-                  <div className="w-40 aspect-[16/9] rounded-lg overflow-hidden bg-slate-200 border border-border shadow-sm shrink-0">
-                    <img
-                      src={courseMedia.thumbnail}
-                      alt="Pratinjau gambar mini"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="flex-1 text-center sm:text-left">
-                    <span className="text-xs font-bold text-text-heading block mb-0.5">
-                      web-dev-bootcamp-showcase-2025.jpg
+              <ul className="mt-3 space-y-2">
+                {data.lessons.filter((lesson) => lesson.module_id === module.id).map((lesson, lessonIndex, moduleLessons) => (
+                  <li key={lesson.id} className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 text-sm">
+                    <span className="flex items-center gap-2"><FileText className="h-4 w-4 shrink-0 text-blue" />{lesson.title} <span className="text-xs text-slate-400">{lesson.type} · {lesson.duration_minutes} mnt</span></span>
+                    <span className="flex shrink-0 items-center gap-1">
+                      <Button type="button" variant="outline" size="sm" disabled={isSaving} onClick={() => renameLesson(lesson)} aria-label={`Ubah judul ${lesson.title}`}><Pencil className="h-4 w-4" /></Button>
+                      <Button type="button" variant="outline" size="sm" disabled={isSaving} onClick={() => editLesson(lesson)} aria-label={`Ubah isi ${lesson.title}`}>Isi</Button>
+                      <Button type="button" variant="outline" size="sm" disabled={isSaving || lessonIndex === 0} onClick={() => moveLesson(lesson, -1)} aria-label={`Pindah ${lesson.title} ke atas`}><ArrowUp className="h-4 w-4" /></Button>
+                      <Button type="button" variant="outline" size="sm" disabled={isSaving || lessonIndex === moduleLessons.length - 1} onClick={() => moveLesson(lesson, 1)} aria-label={`Pindah ${lesson.title} ke bawah`}><ArrowDown className="h-4 w-4" /></Button>
+                      <Button type="button" variant="outline" size="sm" disabled={isSaving} onClick={() => deleteLesson(lesson.id)} aria-label={`Hapus ${lesson.title}`}><Trash2 className="h-4 w-4 text-red" /></Button>
                     </span>
-                    <span className="text-[11px] text-slate-400 block mb-3">
-                      Resolusi tinggi 1920x1080 • Dikelola melalui repositori media terpusat
-                    </span>
-                    <p className="text-xs text-slate-500">
-                      Gambar dikelola melalui repositori media, sehingga perubahan gambar tidak tersedia di editor demo ini.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </Card>
-          )}
-
-          {/* CARD 2: Course Curriculum & Learning Materials */}
-          {activeTab === 'curriculum' && (
-          <Card className="p-6 sm:p-8 space-y-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-border">
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-5 rounded-full bg-orange" />
-                <div>
-                  <h3 className="text-base font-bold text-text-heading">
-                    Kurikulum Kursus & Materi Pembelajaran
-                  </h3>
-                  <span className="text-xs text-slate-400">
-                    Total {modules.length} Bagian{isReordering ? ' • Seret atau gunakan tombol panah untuk mengurutkan' : ''}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => setIsReordering((value) => !value)}>
-                  {isReordering ? 'Selesai Mengurutkan' : 'Urutkan Ulang Bagian'}
-                </Button>
-                <Button
-                  variant="navy"
-                  size="sm"
-                  leftIcon={<Plus className="w-3.5 h-3.5" />}
-                  onClick={() => openEditor({ type: 'material', moduleId: modules.find((module) => module.id === 'm-4')?.id || modules[0]?.id })}
-                >
-                  Tambah Materi
-                </Button>
-              </div>
-            </div>
-
-            {/* Draggable Module Rows */}
-            <div className="space-y-3">
-              {modules.map((m, idx) => (
-                <div
-                  key={m.id}
-                  draggable={isReordering}
-                  onDragStart={() => isReordering && handleDragStart(idx)}
-                  onDragOver={(e) => isReordering && handleDragOver(e, idx)}
-                  onDragEnd={() => setDraggedIdx(null)}
-                  className={`border border-border rounded-xl p-4 bg-white hover:border-blue/40 transition-all shadow-sm ${isReordering ? 'cursor-move' : ''}`}
-                >
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <Move className="w-4 h-4 text-slate-400 shrink-0" />
-                      <span className="text-xs sm:text-sm font-bold text-text-heading truncate">
-                        {m.title}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-3 shrink-0">
-                      {isReordering && (
-                        <div className="flex items-center">
-                          <button
-                            type="button"
-                            aria-label={`Pindahkan ${m.title} ke atas`}
-                            disabled={idx === 0}
-                            onClick={() => moveModule(idx, -1)}
-                            className="rounded p-1 text-slate-400 hover:text-navy disabled:opacity-30"
-                          >
-                            <ArrowUp className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            aria-label={`Pindahkan ${m.title} ke bawah`}
-                            disabled={idx === modules.length - 1}
-                            onClick={() => moveModule(idx, 1)}
-                            className="rounded p-1 text-slate-400 hover:text-navy disabled:opacity-30"
-                          >
-                            <ArrowDown className="w-3.5 h-3.5" />
-                          </button>
+                  </li>
+                ))}
+                {!data.lessons.some((lesson) => lesson.module_id === module.id) && <li className="text-xs text-slate-400">Belum ada materi.</li>}
+                {data.lessons.filter((lesson) => lesson.module_id === module.id).map((lesson) => editingLessonId === lesson.id && (
+                  <li key={`${lesson.id}:editor`} className="mt-3 rounded-xl border border-blue/20 bg-soft-blue/30 p-4">
+                    <form onSubmit={saveLesson} className="space-y-3">
+                      <h4 className="text-sm font-bold text-text-heading">Ubah materi: {lesson.title}</h4>
+                      <Input label="Judul materi" value={editingLessonTitle} onChange={(event) => setEditingLessonTitle(event.target.value)} required maxLength={200} />
+                      <Input label="Durasi (menit)" type="number" min="0" value={editingLessonDuration} onChange={(event) => setEditingLessonDuration(event.target.value)} />
+                      <label className="block text-xs font-semibold text-text-heading">
+                          Isi materi (Markdown)
+                          <span className="mt-1 block font-normal text-slate-500">Gunakan Markdown untuk judul, daftar, tautan, dan format tulisan. HTML mentah tidak dijalankan.</span>
+                          <textarea rows={5} value={editingLessonContent} onChange={(event) => setEditingLessonContent(event.target.value)}
+                            className="mt-1.5 w-full rounded-xl border border-border px-3 py-2.5 text-sm focus:border-blue focus:outline-none" />
+                      </label>
+                      {lesson.type === 'video' && (
+                        <div>
+                          <Input label="Tautan video YouTube atau Vimeo" type="url" value={editingLessonVideoUrl} onChange={(event) => setEditingLessonVideoUrl(event.target.value)} placeholder="https://youtu.be/... atau https://vimeo.com/..." />
+                          <p className="mt-1 text-xs text-slate-500">Tautan akan ditampilkan sebagai pemutar video di halaman belajar peserta.</p>
                         </div>
                       )}
-                      <Badge variant={m.badgeColor as any} size="xs">
-                        {m.status}
-                      </Badge>
-                      <button
-                        type="button"
-                        aria-label={`Ubah ${m.title}`}
-                        onClick={() => openEditor({ type: 'module', id: m.id, title: m.title })}
-                        className="text-slate-400 hover:text-navy p-1"
-                      >
-                        <Edit className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        aria-label={`Hapus ${m.title}`}
-                        onClick={() => removeModule(m.id)}
-                        className="text-slate-400 hover:text-red p-1"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {materials.some((material) => material.moduleId === m.id) && (
-                    <div className="mt-4 pt-3 border-t border-border/60 space-y-2 pl-7">
-                      {materials.filter((material) => material.moduleId === m.id).map((material) => (
-                        <div key={material.id} className="flex items-center justify-between gap-3 text-xs p-2 rounded-lg bg-slate-50">
-                          <div className="flex items-center gap-2 min-w-0">
-                            {material.type === 'video' && <Play className="w-3.5 h-3.5 text-blue shrink-0" />}
-                            {material.type === 'pdf' && <FileText className="w-3.5 h-3.5 text-orange shrink-0" />}
-                            {material.type === 'lab' && <Terminal className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
-                            <span className="truncate">{material.title}</span>
-                            <span className="px-1.5 py-0.5 rounded bg-soft-blue text-blue text-[9px] font-bold uppercase">
-                              {material.type === 'video' ? 'Video' : material.type === 'pdf' ? 'PDF' : 'Lab'}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className="text-slate-400">{material.detail}</span>
-                            <button
-                              type="button"
-                              aria-label={`Ubah materi ${material.title}`}
-                              onClick={() => openEditor({
-                                type: 'material',
-                                id: material.id,
-                                moduleId: material.moduleId,
-                                title: material.title,
-                                materialType: material.type,
-                                detail: material.detail,
-                              })}
-                              className="text-slate-400 hover:text-navy"
-                            >
-                              <Edit className="w-3 h-3" />
-                            </button>
-                            <button
-                              type="button"
-                              aria-label={`Hapus materi ${material.title}`}
-                              onClick={() => removeMaterial(material.id)}
-                              className="text-slate-400 hover:text-red"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </Card>
-          )}
-
-          {/* CARD 3: Enrolled Students Overview */}
-          {activeTab === 'students' && (
-          <Card className="p-6 sm:p-8 space-y-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-border">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-base font-bold text-text-heading">
-                    Enrolled Students Overview (Cohort 2025)
-                  </h3>
-                  <span className="px-2.5 py-0.5 rounded-full bg-soft-blue text-blue text-xs font-bold">
-                    1,450 Total
-                  </span>
-                </div>
-                <span className="text-xs text-slate-400">
-                  Track individual pacing, submission rates, and cohort compliance
-                </span>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => downloadCSV('peserta-kursus.csv', [
-                  ['Nama', 'Tanggal Daftar', 'Progres', 'Rata-rata Kuis', 'Aktif Terakhir'],
-                  ...filteredEnrolledStudents.map((student) => [
-                    student.name,
-                    student.enrolledDate,
-                    `${student.progress}%`,
-                    `${student.quizAvg}%`,
-                    student.lastActive,
-                  ]),
-                ])}
-                leftIcon={<Download className="w-3.5 h-3.5" />}
-              >
-                Ekspor CSV
-              </Button>
-            </div>
-
-            {/* Toolbar: Search + Filter Pills */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="flex items-center gap-2 p-1 bg-slate-100 rounded-xl text-xs font-bold w-full sm:w-auto">
-                <button
-                  type="button"
-                  onClick={() => setStudentFilter('all')}
-                  className={`px-3 py-1.5 rounded-lg transition-all ${
-                    studentFilter === 'all' ? 'bg-white text-navy shadow-sm' : 'text-slate-600'
-                  }`}
-                >
-                  Semua
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setStudentFilter('active')}
-                  className={`px-3 py-1.5 rounded-lg transition-all ${
-                    studentFilter === 'active' ? 'bg-white text-navy shadow-sm' : 'text-slate-600'
-                  }`}
-                >
-                  Aktif
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setStudentFilter('completed')}
-                  className={`px-3 py-1.5 rounded-lg transition-all ${
-                    studentFilter === 'completed' ? 'bg-white text-navy shadow-sm' : 'text-slate-600'
-                  }`}
-                >
-                  Selesai
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setStudentFilter('at-risk')}
-                  className={`px-3 py-1.5 rounded-lg transition-all ${
-                    studentFilter === 'at-risk' ? 'bg-white text-navy shadow-sm' : 'text-slate-600'
-                  }`}
-                >
-                  Berisiko
-                </button>
-              </div>
-
-              <div className="w-full sm:w-64">
-                <input
-                  type="text"
-                  value={studentSearch}
-                  onChange={(e) => setStudentSearch(e.target.value)}
-                  placeholder="Cari nama peserta..."
-                  className="w-full bg-slate-50 text-xs rounded-xl border border-border px-3 py-2 focus:outline-none focus:border-blue"
-                />
-              </div>
-            </div>
-
-            {/* Students Table */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-border text-slate-400 font-bold uppercase tracking-wider">
-                    <th className="pb-3">PESERTA</th>
-                    <th className="pb-3">TANGGAL DAFTAR</th>
-                    <th className="pb-3 w-36">PROGRES</th>
-                    <th className="pb-3">RATA-RATA KUIS</th>
-                    <th className="pb-3">AKTIF TERAKHIR</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/60">
-                  {filteredEnrolledStudents.map((st) => (
-                    <tr key={st.name} className="hover:bg-slate-50 transition-colors">
-                      <td className="py-3.5">
-                        <div className="flex items-center gap-2.5">
-                          <Avatar src={getUserAvatar(st.avatarId)} name={st.name} size="xs" />
-                          <span className="font-bold text-text-heading">{st.name}</span>
-                        </div>
-                      </td>
-                      <td className="py-3.5 text-slate-500">{st.enrolledDate}</td>
-                      <td className="py-3.5">
-                        <div className="flex items-center gap-2">
-                          <ProgressBar
-                            progress={st.progress}
-                            color={st.isCompleted ? 'green' : 'blue'}
-                            size="xs"
-                          />
-                          <span className="font-bold text-slate-700 w-8">{st.progress}%</span>
-                        </div>
-                      </td>
-                      <td className="py-3.5 font-bold text-navy">{st.quizAvg}%</td>
-                      <td className="py-3.5 text-slate-500">{st.lastActive}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {filteredEnrolledStudents.length === 0 && (
-                <p className="py-8 text-center text-sm text-slate-500">Tidak ada peserta yang cocok dengan filter.</p>
-              )}
-            </div>
-          </Card>
-          )}
+                      <div>
+                          {data.lessonContents.find((item) => item.lesson_id === lesson.id)?.file_path && (
+                            <p className="mb-2 text-xs text-slate-500">Berkas saat ini tersimpan. Pilih berkas baru hanya untuk menggantinya.</p>
+                          )}
+                          <Input label={`Ganti berkas (maks. 10 MB${lesson.type === 'video' ? ', MP4/WebM' : lesson.type === 'pdf' ? ', PDF' : ', gambar/PDF'})`} type="file"
+                            accept={lesson.type === 'video' ? 'video/mp4,video/webm' : lesson.type === 'pdf' ? 'application/pdf' : 'image/jpeg,image/png,image/webp,application/pdf'}
+                            onChange={(event) => setEditingLessonFile(event.target.files?.[0] ?? null)} />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button type="submit" variant="navy" size="sm" disabled={isSaving}>Simpan materi</Button>
+                        <Button type="button" variant="outline" size="sm" disabled={isSaving} onClick={() => setEditingLessonId('')}>Batal</Button>
+                      </div>
+                    </form>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
         </div>
 
-        {/* Right Column (4 cols): Module Quizzes, Health & Engagement, Office Hours */}
-        <div className={['quizzes', 'analytics'].includes(activeTab) ? 'xl:col-span-12 space-y-6' : 'hidden'}>
-          {/* Right Card 1: Module Quizzes */}
-          {activeTab === 'quizzes' && (
-          <Card className="p-6">
-            <div className="flex items-center justify-between pb-3 border-b border-border mb-4">
-              <h3 className="text-sm font-bold text-text-heading">Kuis Modul</h3>
-              <Button
-                variant="orange"
-                size="sm"
-                leftIcon={<Plus className="w-3.5 h-3.5" />}
-                onClick={() => openEditor({ type: 'quiz' })}
-              >
-                Tambah Kuis
-              </Button>
+        <form onSubmit={addLesson} className="space-y-4 border-t border-border pt-5">
+          <h3 className="font-bold text-text-heading">Tambah materi</h3>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Select label="Modul" value={lessonModuleId} onChange={(event) => setLessonModuleId(event.target.value)}
+              options={data.modules.map((module) => ({ value: module.id, label: module.title }))} required />
+            <Input label="Judul materi" value={lessonTitle} onChange={(event) => setLessonTitle(event.target.value)} required maxLength={200} />
+            <Select label="Jenis materi" value={lessonType} onChange={(event) => {
+              setLessonType(event.target.value as LessonRow['type']);
+              setLessonFile(null);
+            }}
+              options={[
+                { value: 'video', label: 'Video' },
+                { value: 'pdf', label: 'PDF' },
+                { value: 'lab', label: 'Lab / praktik' },
+                { value: 'text', label: 'Tulisan / materi teks' },
+              ]} />
+            <Input label="Durasi (menit)" type="number" min="0" value={lessonDuration} onChange={(event) => setLessonDuration(event.target.value)} />
+          </div>
+          {lessonType === 'video' && (
+            <div>
+              <Input label="Tautan video YouTube atau Vimeo (opsional jika unggah video)" type="url" value={lessonVideoUrl} onChange={(event) => setLessonVideoUrl(event.target.value)} placeholder="https://youtu.be/... atau https://vimeo.com/..." />
+              <p className="mt-1 text-xs text-slate-500">Tautan akan ditampilkan sebagai pemutar video di halaman belajar peserta.</p>
             </div>
+          )}
+          <Input
+            key={lessonType}
+            label={`Berkas materi (maks. 10 MB${lessonType === 'video' ? ', MP4/WebM' : lessonType === 'pdf' ? ', PDF' : ', gambar/PDF'})`}
+            type="file"
+            accept={lessonType === 'video' ? 'video/mp4,video/webm' : lessonType === 'pdf' ? 'application/pdf' : 'image/jpeg,image/png,image/webp,application/pdf'}
+            onChange={(event) => setLessonFile(event.target.files?.[0] ?? null)}
+          />
+          <label className="block text-xs font-semibold text-text-heading">
+              Isi materi (Markdown)
+              <span className="mt-1 block font-normal text-slate-500">Materi tulisan disimpan sebagai Markdown dan akan ditampilkan dengan aman kepada peserta.</span>
+              <textarea rows={5} value={lessonContent} onChange={(event) => setLessonContent(event.target.value)}
+                className="mt-1.5 w-full rounded-xl border border-border px-3 py-2.5 text-sm focus:border-blue focus:outline-none" />
+          </label>
+          <Button type="submit" variant="navy" disabled={isSaving || !data.modules.length} leftIcon={<Plus className="h-4 w-4" />}>Tambah materi</Button>
+        </form>
+      </Card>
 
-            <div className="space-y-4">
-              {/* Quiz 1 */}
-              <div className="p-4 rounded-xl border border-blue/30 bg-soft-blue/20">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-bold text-navy">
-                    Quiz 1: React & Frontend Architecture
-                  </span>
-                  <Badge variant="active" size="xs">Aktif</Badge>
+      <Card className="space-y-5 p-5 sm:p-7">
+        <div>
+          <h2 className="text-lg font-bold text-text-heading">Kuis pilihan ganda</h2>
+          <p className="mt-1 text-xs text-slate-500">Kunci jawaban disimpan terpisah dan tidak dibaca peserta sebelum kuis dikirim.</p>
+        </div>
+        <form onSubmit={addQuiz} className="grid gap-4 sm:grid-cols-2">
+          <Input label="Judul kuis" value={quizTitle} onChange={(event) => setQuizTitle(event.target.value)} required maxLength={160} />
+          <Select label="Modul (opsional)" value={quizModuleId} onChange={(event) => setQuizModuleId(event.target.value)}
+            options={[{ value: '', label: 'Umum' }, ...data.modules.map((module) => ({ value: module.id, label: module.title }))]} />
+          <Input label="Durasi (menit)" type="number" min="1" value={quizTimeLimit} onChange={(event) => setQuizTimeLimit(event.target.value)} required />
+          <Input label="Nilai kelulusan (%)" type="number" min="0" max="100" value={quizPassingScore} onChange={(event) => setQuizPassingScore(event.target.value)} required />
+          <Button type="submit" variant="outline" disabled={isSaving}>Buat kuis</Button>
+        </form>
+        <div className="space-y-3">
+          {data.quizzes.map((quiz) => (
+            <div key={quiz.id} className="rounded-xl border border-border p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="font-bold text-text-heading">{quiz.title}</p>
+                  <p className="mt-1 text-xs text-slate-500">{quiz.time_limit_minutes} menit · lulus {quiz.passing_score}% · maksimal {quiz.max_attempts} percobaan</p>
                 </div>
-                <p className="text-[11px] text-slate-500 mb-2">
-                  10 Questions • 15 Mins Limit • Min Pass 80%
-                </p>
-                <div className="text-xs text-slate-600 font-semibold mb-3 flex items-center justify-between">
-                  <span>Jawaban: <strong>1.420</strong></span>
-                  <span>Rata-rata: <strong>86,5%</strong></span>
-                  <span className="text-green">Lulus: <strong>92%</strong></span>
-                </div>
-                <div className="flex items-center gap-3 text-xs font-bold text-blue">
-                  <button type="button" onClick={() => setActiveTab('analytics')} className="hover:underline">Lihat Analitik</button>
-                  <span className="font-normal text-slate-400">Kuis contoh — tidak dapat diedit</span>
-                </div>
+                <Button type="button" variant={quiz.is_published ? 'outline' : 'navy'} size="sm" disabled={isSaving}
+                  onClick={() => toggleQuizPublication(quiz)}>{quiz.is_published ? 'Tarik kuis' : 'Terbitkan kuis'}</Button>
               </div>
-
-              {/* Quiz 2 */}
-              <div className="p-4 rounded-xl border border-border bg-slate-50">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-bold text-text-heading">
-                    Quiz 2: JavaScript Modern ES6+ & Async
-                  </span>
-                  <Badge variant="active" size="xs">Aktif</Badge>
+            </div>
+          ))}
+        </div>
+        {data.quizzes.length > 0 && (
+          <div className="space-y-5 border-t border-border pt-5">
+          <section className="space-y-3">
+            <h3 className="font-bold text-text-heading">Daftar soal</h3>
+            <Select label="Pilih kuis untuk mengelola soal" value={questionQuizId} onChange={(event) => {
+              setQuestionQuizId(event.target.value);
+              setEditingQuestionId('');
+            }}
+              options={data.quizzes.map((quiz) => ({ value: quiz.id, label: quiz.title }))} required />
+            {data.questions.filter((question) => question.quiz_id === questionQuizId).map((question, index) => (
+              <div key={question.id} className="flex flex-col justify-between gap-3 rounded-xl border border-border p-4 sm:flex-row sm:items-center">
+                <div className="min-w-0">
+                  <p className="text-xs font-bold uppercase text-slate-400">Soal {index + 1} · {question.topic} · {question.points} poin</p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm font-semibold text-text-heading">{question.text}</p>
                 </div>
-                <p className="text-[11px] text-slate-500 mb-2">
-                  12 Questions • 20 Mins Limit • Min Pass 75%
-                </p>
-                <div className="flex items-center gap-3 text-xs font-bold text-blue">
-                  <button type="button" onClick={() => setActiveTab('analytics')} className="hover:underline">Lihat Analitik</button>
-                  <span className="font-normal text-slate-400">Kuis contoh — tidak dapat diedit</span>
-                </div>
-              </div>
-
-              {/* Quiz 3 */}
-              <div className="p-4 rounded-xl border border-amber-200 bg-amber-50/50">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-bold text-text-heading">
-                    Quiz 3: Full-Stack Node.js & Schemas
-                  </span>
-                  <Badge variant="draft" size="xs">Draf</Badge>
-                </div>
-                <p className="text-[11px] text-amber-800 mb-2 font-medium">
-                  Unpublished changes • In preparation for Week 6
-                </p>
-                <div className="flex items-center gap-3 text-xs font-bold text-orange">
-                  <span>Kuis contoh — tidak dapat diedit</span>
-                </div>
-              </div>
-
-              {createdQuizzes.map((quiz) => (
-                <div key={quiz.id} className="p-4 rounded-xl border border-border bg-white">
-                  <div className="flex items-start justify-between gap-2 mb-1">
-                    <span className="text-xs font-bold text-text-heading">{quiz.title}</span>
-                    <Badge variant={(quiz.items?.length ?? 0) === quiz.questions ? 'active' : 'draft'} size="xs">
-                      {(quiz.items?.length ?? 0) === quiz.questions ? 'Siap' : 'Draf'}
-                    </Badge>
-                  </div>
-                  <p className="text-[11px] text-slate-500">
-                    {quiz.items?.length ?? 0}/{quiz.questions} soal dibuat • Durasi {quiz.duration} • Nilai lulus {quiz.passingScore}%
-                  </p>
-                  <div className="mt-3 space-y-2">
-                    {(quiz.items ?? []).map((item, index) => (
-                      <div key={item.id} className="flex items-start justify-between gap-2 rounded-lg bg-slate-50 p-2.5">
-                        <div className="min-w-0">
-                          <p className="text-xs font-semibold text-slate-700">{index + 1}. {item.prompt}</p>
-                          <p className="mt-1 text-[11px] font-semibold text-green">Kunci jawaban: {item.correctOption}. {item.options[item.correctOption]}</p>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-1">
-                          <button type="button" aria-label={`Ubah soal ${index + 1}`} onClick={() => openQuizItemEditor(quiz, item)} className="rounded p-1 text-slate-400 hover:text-blue">
-                            <Edit className="h-3.5 w-3.5" />
-                          </button>
-                          <button type="button" aria-label={`Hapus soal ${index + 1}`} onClick={() => removeQuizItem(quiz, item)} className="rounded p-1 text-slate-400 hover:text-red">
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="mt-3"
-                    disabled={(quiz.items?.length ?? 0) >= quiz.questions}
-                    onClick={() => openQuizItemEditor(quiz)}
-                    leftIcon={<Plus className="h-3.5 w-3.5" />}
-                  >
-                    Tambah Soal & Jawaban
+                <div className="flex shrink-0 gap-2">
+                  <Button type="button" variant="outline" size="sm" disabled={isSaving}
+                    onClick={() => editQuestion(question)} leftIcon={<Pencil className="h-4 w-4" />}>Ubah</Button>
+                  <Button type="button" variant="outline" size="sm" disabled={isSaving}
+                    onClick={() => deleteQuestion(question)} aria-label={`Hapus soal ${index + 1}`}>
+                    <Trash2 className="h-4 w-4 text-red" />
                   </Button>
                 </div>
+              </div>
+            ))}
+            {!data.questions.some((question) => question.quiz_id === questionQuizId) && (
+              <p className="text-xs text-slate-500">Belum ada soal dalam kuis ini.</p>
+            )}
+          </section>
+          <form onSubmit={addQuestion} className="space-y-4">
+            <h3 className="font-bold text-text-heading">{editingQuestionId ? 'Ubah soal' : 'Tambah soal'}</h3>
+            <Select label="Kuis" value={questionQuizId} onChange={(event) => setQuestionQuizId(event.target.value)}
+              options={data.quizzes.map((quiz) => ({ value: quiz.id, label: quiz.title }))} required />
+            <Input label="Topik" value={questionTopic} onChange={(event) => setQuestionTopic(event.target.value)} />
+            <label className="block text-xs font-semibold text-text-heading">Pertanyaan
+              <textarea rows={3} value={questionText} onChange={(event) => setQuestionText(event.target.value)} required
+                className="mt-1.5 w-full rounded-xl border border-border px-3 py-2.5 text-sm focus:border-blue focus:outline-none" />
+            </label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {(['A', 'B', 'C', 'D'] as const).map((label) => (
+                <Input key={label} label={`Opsi ${label}`} value={questionOptions[label]}
+                  onChange={(event) => setQuestionOptions((current) => ({ ...current, [label]: event.target.value }))} required />
               ))}
             </div>
-          </Card>
-          )}
-
-          {/* Right Card 2: Course Health & Engagement */}
-          {activeTab === 'analytics' && (
-          <Card className="p-6">
-            <h3 className="text-sm font-bold text-text-heading mb-2">
-              Course Health & Engagement
-            </h3>
-            <div className="flex items-center gap-2 text-xs text-green font-bold mb-4">
-              <span className="w-2 h-2 rounded-full bg-green animate-pulse" />
-              <span>Peserta Aktif Mingguan +18,4% dibanding minggu lalu</span>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Select label="Kunci jawaban" value={correctLabel} onChange={(event) => setCorrectLabel(event.target.value)}
+                options={['A', 'B', 'C', 'D'].map((label) => ({ value: label, label }))} />
+              <Input label="Bobot" type="number" min="0.01" step="0.01" value={questionPoints} onChange={(event) => setQuestionPoints(event.target.value)} />
             </div>
-
-            <div className="space-y-3 pt-2 border-t border-border">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-500">Rata-rata Durasi Tonton:</span>
-                <strong className="text-navy">34,2 menit / sesi</strong>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-500">Pengumpulan Tugas:</span>
-                <strong className="text-navy">94,8% tepat waktu</strong>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-500">Pertanyaan Diajukan:</span>
-                <strong className="text-navy">128 di forum tanya jawab</strong>
-              </div>
+            <label className="block text-xs font-semibold text-text-heading">Penjelasan jawaban
+              <textarea rows={2} value={questionExplanation} onChange={(event) => setQuestionExplanation(event.target.value)}
+                className="mt-1.5 w-full rounded-xl border border-border px-3 py-2.5 text-sm focus:border-blue focus:outline-none" />
+            </label>
+            <label className="block text-xs font-semibold text-text-heading">Potongan kode (opsional)
+              <textarea rows={3} value={questionCode} onChange={(event) => setQuestionCode(event.target.value)}
+                className="mt-1.5 w-full rounded-xl border border-border px-3 py-2.5 font-mono text-sm focus:border-blue focus:outline-none" />
+            </label>
+            <div className="flex gap-2">
+              <Button type="submit" variant="navy" disabled={isSaving}>{editingQuestionId ? 'Simpan perubahan' : 'Simpan soal'}</Button>
+              {editingQuestionId && <Button type="button" variant="outline" disabled={isSaving} onClick={() => {
+                setEditingQuestionId('');
+                setQuestionText('');
+                setQuestionTopic('');
+                setQuestionOptions({ A: '', B: '', C: '', D: '' });
+                setQuestionExplanation('');
+                setQuestionCode('');
+              }}>Batal</Button>}
             </div>
-          </Card>
-          )}
-
-          {/* Right Card 3: Navy Card - Instructor Office Hours */}
-          {activeTab === 'analytics' && (
-          <div className="bg-navy rounded-2xl p-6 text-white shadow-soft flex items-center justify-between gap-4">
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-orange block mb-0.5">
-                LIVE SESSION
-              </span>
-              <h4 className="text-xs sm:text-sm font-bold">
-                Instructor Office Hours
-              </h4>
-              <p className="text-[11px] text-slate-300">
-                Every Thursday • 19:00 WIB
-              </p>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="bg-white text-navy hover:bg-slate-100 font-bold border-none"
-            >
-              Manage
-            </Button>
+          </form>
           </div>
-          )}
+        )}
+      </Card>
+
+      <div className="flex flex-col gap-3 rounded-2xl border border-blue/15 bg-soft-blue/50 p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="font-bold text-text-heading">Ajukan untuk penerbitan</p>
+          <p className="mt-1 text-xs text-slate-600">Perlu deskripsi, thumbnail, minimal satu modul, dan satu materi.</p>
         </div>
+        <Button type="button" variant="orange" disabled={isSaving || data.course.status === 'pending_review' || data.course.status === 'published'}
+          onClick={submitForReview} leftIcon={<Send className="h-4 w-4" />}>
+          {data.course.status === 'pending_review' ? 'Menunggu tinjauan' : 'Ajukan kursus'}
+        </Button>
       </div>
-
-      {editorForm && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-navy/50 p-4"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setEditorForm(null);
-          }}
-        >
-          <section
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="curriculum-dialog-title"
-            className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-soft-lg"
-          >
-            <div className="mb-5 flex items-center justify-between">
-              <h2 id="curriculum-dialog-title" className="text-lg font-bold text-text-heading">
-                {editorForm.type === 'quiz'
-                  ? 'Tambah Kuis'
-                  : editorForm.type === 'material'
-                  ? editorForm.id ? 'Ubah Materi' : 'Tambah Materi'
-                  : editorForm.id ? 'Ubah Bagian' : 'Tambah Bagian'}
-              </h2>
-              <button
-                type="button"
-                aria-label="Tutup formulir"
-                onClick={() => setEditorForm(null)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-navy"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <form onSubmit={saveEditorForm} className="space-y-4">
-              <label className="block text-xs font-semibold text-text-heading">
-                {editorForm.type === 'quiz' ? 'Nama kuis' : editorForm.type === 'material' ? 'Nama materi' : 'Nama bagian'}
-                <input
-                  autoFocus
-                  required
-                  maxLength={120}
-                  value={editorForm.title}
-                  onChange={(event) => setEditorForm({ ...editorForm, title: event.target.value })}
-                  className="mt-1.5 w-full rounded-xl border border-border px-3 py-2.5 text-sm font-normal text-slate-800 focus:border-blue focus:outline-none"
-                  placeholder={editorForm.type === 'quiz' ? 'mis. Kuis Arsitektur React' : 'Masukkan judul'}
-                />
-              </label>
-
-              {editorForm.type === 'material' && (
-                <>
-                  <label className="block text-xs font-semibold text-text-heading">
-                    Bagian kursus
-                    <select
-                      value={editorForm.moduleId}
-                      required
-                      onChange={(event) => setEditorForm({ ...editorForm, moduleId: event.target.value })}
-                      className="mt-1.5 w-full rounded-xl border border-border bg-white px-3 py-2.5 text-sm font-normal text-slate-800 focus:border-blue focus:outline-none"
-                    >
-                      {modules.map((module) => <option key={module.id} value={module.id}>{module.title}</option>)}
-                    </select>
-                  </label>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <label className="block text-xs font-semibold text-text-heading">
-                      Jenis materi
-                      <select
-                        value={editorForm.materialType}
-                        onChange={(event) => {
-                          const materialType = event.target.value;
-                          if (materialType === 'video' || materialType === 'pdf' || materialType === 'lab') {
-                            setEditorForm({ ...editorForm, materialType });
-                          }
-                        }}
-                        className="mt-1.5 w-full rounded-xl border border-border bg-white px-3 py-2.5 text-sm font-normal text-slate-800 focus:border-blue focus:outline-none"
-                      >
-                        <option value="video">Video</option>
-                        <option value="pdf">PDF</option>
-                        <option value="lab">Lab interaktif</option>
-                      </select>
-                    </label>
-                    <label className="block text-xs font-semibold text-text-heading">
-                      Durasi / keterangan
-                      <input
-                        value={editorForm.detail}
-                        onChange={(event) => setEditorForm({ ...editorForm, detail: event.target.value })}
-                        className="mt-1.5 w-full rounded-xl border border-border px-3 py-2.5 text-sm font-normal text-slate-800 focus:border-blue focus:outline-none"
-                        placeholder="mis. 20 menit"
-                      />
-                    </label>
-                  </div>
-                </>
-              )}
-
-              {editorForm.type === 'quiz' && (
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <label className="block text-xs font-semibold text-text-heading">
-                    Jumlah pertanyaan
-                    <input
-                      type="number"
-                      min="1"
-                      max="100"
-                      required
-                      value={editorForm.questions}
-                      onChange={(event) => setEditorForm({ ...editorForm, questions: event.target.value })}
-                      className="mt-1.5 w-full rounded-xl border border-border px-3 py-2.5 text-sm font-normal text-slate-800 focus:border-blue focus:outline-none"
-                    />
-                  </label>
-                  <label className="block text-xs font-semibold text-text-heading">
-                    Durasi (menit)
-                    <input
-                      type="number"
-                      min="1"
-                      max="300"
-                      required
-                      value={editorForm.duration}
-                      onChange={(event) => setEditorForm({ ...editorForm, duration: event.target.value })}
-                      className="mt-1.5 w-full rounded-xl border border-border px-3 py-2.5 text-sm font-normal text-slate-800 focus:border-blue focus:outline-none"
-                    />
-                  </label>
-                  <label className="block text-xs font-semibold text-text-heading">
-                    Nilai lulus (%)
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      required
-                      value={editorForm.passingScore}
-                      onChange={(event) => setEditorForm({ ...editorForm, passingScore: event.target.value })}
-                      className="mt-1.5 w-full rounded-xl border border-border px-3 py-2.5 text-sm font-normal text-slate-800 focus:border-blue focus:outline-none"
-                    />
-                  </label>
-                </div>
-              )}
-              <div className="flex justify-end gap-2 pt-2">
-                <Button type="button" variant="outline" onClick={() => setEditorForm(null)}>Batal</Button>
-                <Button type="submit" variant="navy">Simpan</Button>
-              </div>
-            </form>
-          </section>
-        </div>
-      )}
-      {quizItemEditor && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-navy/50 p-4"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setQuizItemEditor(null);
-          }}
-        >
-          <section
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="quiz-item-dialog-title"
-            className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-soft-lg"
-          >
-            <div className="mb-5 flex items-center justify-between gap-3">
-              <div>
-                <h2 id="quiz-item-dialog-title" className="text-lg font-bold text-text-heading">
-                  {quizItemEditor.itemId ? 'Ubah Soal' : 'Tambah Soal'}
-                </h2>
-                <p className="mt-1 text-xs text-slate-500">Isi pertanyaan, empat pilihan, lalu pilih jawaban yang benar.</p>
-              </div>
-              <button type="button" aria-label="Tutup editor soal" onClick={() => setQuizItemEditor(null)} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <form onSubmit={saveQuizItem} className="space-y-4">
-              <label className="block text-xs font-semibold text-text-heading">
-                Pertanyaan
-                <textarea
-                  autoFocus
-                  required
-                  maxLength={1000}
-                  rows={3}
-                  value={quizItemDraft.prompt}
-                  onChange={(event) => setQuizItemDraft({ ...quizItemDraft, prompt: event.target.value })}
-                  placeholder="Tulis pertanyaan kuis..."
-                  className="mt-1.5 w-full rounded-xl border border-border px-3 py-2.5 text-sm font-normal text-slate-800 focus:border-blue focus:outline-none"
-                />
-              </label>
-              <fieldset className="space-y-3">
-                <legend className="text-xs font-semibold text-text-heading">Pilihan jawaban</legend>
-                {(['A', 'B', 'C', 'D'] as const).map((option) => (
-                  <label key={option} className={`flex items-center gap-3 rounded-xl border p-3 ${quizItemDraft.correctOption === option ? 'border-green bg-green-tint/40' : 'border-border'}`}>
-                    <input
-                      type="radio"
-                      name="correctQuizOption"
-                      value={option}
-                      checked={quizItemDraft.correctOption === option}
-                      onChange={() => setQuizItemDraft({ ...quizItemDraft, correctOption: option })}
-                      aria-label={`Tandai pilihan ${option} sebagai jawaban benar`}
-                      className="h-4 w-4 accent-green"
-                    />
-                    <span className="w-5 shrink-0 text-xs font-bold text-slate-600">{option}.</span>
-                    <input
-                      required
-                      maxLength={500}
-                      value={quizItemDraft.options[option]}
-                      onChange={(event) => setQuizItemDraft({
-                        ...quizItemDraft,
-                        options: { ...quizItemDraft.options, [option]: event.target.value },
-                      })}
-                      placeholder={`Isi pilihan ${option}`}
-                      className="min-w-0 flex-1 bg-transparent text-sm font-normal text-slate-800 focus:outline-none"
-                    />
-                    {quizItemDraft.correctOption === option && <span className="text-[10px] font-bold text-green">JAWABAN BENAR</span>}
-                  </label>
-                ))}
-              </fieldset>
-              <label className="block text-xs font-semibold text-text-heading">
-                Penjelasan jawaban (opsional)
-                <textarea
-                  maxLength={1000}
-                  rows={2}
-                  value={quizItemDraft.explanation}
-                  onChange={(event) => setQuizItemDraft({ ...quizItemDraft, explanation: event.target.value })}
-                  placeholder="Jelaskan mengapa pilihan tersebut benar..."
-                  className="mt-1.5 w-full rounded-xl border border-border px-3 py-2.5 text-sm font-normal text-slate-800 focus:border-blue focus:outline-none"
-                />
-              </label>
-              <div className="flex justify-end gap-2 pt-2">
-                <Button type="button" variant="outline" onClick={() => setQuizItemEditor(null)}>Batal</Button>
-                <Button type="submit" variant="navy">Simpan Soal</Button>
-              </div>
-            </form>
-          </section>
-        </div>
-      )}
     </div>
   );
 };

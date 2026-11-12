@@ -1,5 +1,7 @@
-import { Course, CourseCategory, CourseLevel } from '../types';
-import { mockCourses, primaryWebDevCourse } from '../data/mockData';
+import { Course, CourseCategory, CourseLevel, CurriculumSection, Lesson } from '../types';
+import type { Database } from '../types/database';
+import { getErrorMessage } from '../lib/errors';
+import { requireSupabase } from '../lib/supabase';
 
 export interface CourseFilterOptions {
   category?: string;
@@ -8,87 +10,162 @@ export interface CourseFilterOptions {
   minRating?: number;
   search?: string;
   sortBy?: 'newest' | 'highest-rated' | 'most-popular' | 'price-low' | 'price-high';
+  page?: number;
+  pageSize?: number;
 }
 
-export const getCourses = async (options?: CourseFilterOptions): Promise<Course[]> => {
-  // Simulate network latency
-  await new Promise((resolve) => setTimeout(resolve, 60));
+export interface CoursePage {
+  courses: Course[];
+  total: number;
+}
 
-  let results = [...mockCourses];
+type PublicCourseRow = Database['public']['Views']['v_public_courses']['Row'];
 
-  if (!options) return results;
+const categories: CourseCategory[] = [
+  'Technology',
+  'Business',
+  'Design',
+  'Development',
+  'Marketing',
+  'Personal Growth',
+  'Data & AI',
+];
 
-  const { category, level, price, minRating, search, sortBy } = options;
+const levels: CourseLevel[] = ['Beginner', 'Intermediate', 'Advanced', 'All Levels'];
 
-  if (search && search.trim() !== '') {
-    const q = search.toLowerCase().trim();
-    results = results.filter(
-      (c) =>
-        c.title.toLowerCase().includes(q) ||
-        c.subtitle.toLowerCase().includes(q) ||
-        c.instructor.name.toLowerCase().includes(q) ||
-        c.category.toLowerCase().includes(q)
-    );
-  }
+const toCategory = (value: string | null): CourseCategory =>
+  categories.find((category) => category === value) ?? 'Technology';
 
-  if (category && category !== 'all') {
-    results = results.filter(
-      (c) => c.category.toLowerCase() === category.toLowerCase()
-    );
-  }
+const toLevel = (value: string): CourseLevel =>
+  levels.find((level) => level === value) ?? 'Beginner';
 
-  if (level && level !== 'all') {
-    results = results.filter(
-      (c) => c.level.toLowerCase() === level.toLowerCase()
-    );
-  }
-
-  if (price && price !== 'all') {
-    if (price === 'free') {
-      results = results.filter((c) => c.price === 0);
-    } else if (price === 'paid') {
-      results = results.filter((c) => c.price > 0);
-    }
-  }
-
-  if (minRating && minRating > 0) {
-    results = results.filter((c) => c.rating >= minRating);
-  }
-
-  if (sortBy) {
-    switch (sortBy) {
-      case 'highest-rated':
-        results.sort((a, b) => b.rating - a.rating);
-        break;
-      case 'most-popular':
-        results.sort((a, b) => b.enrolledCount - a.enrolledCount);
-        break;
-      case 'price-low':
-        results.sort((a, b) => a.price - b.price);
-        break;
-      case 'price-high':
-        results.sort((a, b) => b.price - a.price);
-        break;
-      case 'newest':
-      default:
-        // Default order
-        break;
-    }
-  }
-
-  return results;
+const toDuration = (minutes: number): string => {
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  if (hours === 0) return `${remainingMinutes} menit`;
+  return remainingMinutes === 0 ? `${hours} jam` : `${hours} jam ${remainingMinutes} menit`;
 };
+
+const getAssetUrl = (bucket: 'course-thumbnails' | 'avatars', path: string | null): string | undefined => {
+  if (!path) return undefined;
+  return requireSupabase().storage.from(bucket).getPublicUrl(path).data.publicUrl;
+};
+
+const mapCourse = (row: PublicCourseRow, sections: CurriculumSection[] = []): Course => ({
+  id: row.id,
+  slug: row.slug,
+  title: row.title,
+  subtitle: row.subtitle,
+  category: toCategory(row.category_name),
+  level: toLevel(row.level),
+  instructor: {
+    id: row.teacher_id,
+    name: row.instructor_name,
+    title: 'Pengajar',
+    photoId: getAssetUrl('avatars', row.instructor_avatar_path) ?? row.teacher_id,
+    rating: row.average_rating,
+    reviewCount: row.review_count,
+    studentsCount: row.instructor_students_count,
+    coursesCount: row.instructor_courses_count,
+    bio: '',
+  },
+  price: Number(row.price),
+  originalPrice: Number(row.original_price),
+  rating: Number(row.average_rating),
+  reviewCount: row.review_count,
+  enrolledCount: row.enrolled_count,
+  maxParticipants: row.max_participants,
+  lessonsCount: row.lessons_count,
+  totalDuration: toDuration(row.total_duration_minutes),
+  isPopular: row.enrolled_count > 0,
+  language: row.language,
+  lastUpdated: row.published_at ?? row.created_at,
+  description: row.description,
+  learningOutcomes: row.learning_outcomes,
+  requirements: row.requirements,
+  sections,
+  thumbnailUrl: getAssetUrl('course-thumbnails', row.thumbnail_path),
+  bannerUrl: getAssetUrl('course-thumbnails', row.banner_path),
+});
+
+const getPublicCourseQuery = () => requireSupabase().from('v_public_courses');
+
+export const getCoursesPage = async (options: CourseFilterOptions = {}): Promise<CoursePage> => {
+  const {
+    category,
+    level,
+    price = 'all',
+    minRating = 0,
+    search,
+    sortBy = 'newest',
+    page = 1,
+    pageSize = 12,
+  } = options;
+  const from = (Math.max(1, page) - 1) * Math.max(1, pageSize);
+  const to = from + Math.max(1, pageSize) - 1;
+  let query = getPublicCourseQuery().select('*', { count: 'exact' });
+
+  if (category && category.toLowerCase() !== 'all') query = query.eq('category_name', category);
+  if (level && level.toLowerCase() !== 'all') query = query.eq('level', level);
+  if (price === 'free') query = query.eq('price', 0);
+  if (price === 'paid') query = query.gt('price', 0);
+  if (minRating > 0) query = query.gte('average_rating', minRating);
+
+  const searchTerm = search?.trim().replace(/[%_*]/g, ' ').replace(/[\r\n"]/g, ' ');
+  if (searchTerm) {
+    const term = `"*${searchTerm.replace(/\\/g, '\\\\')}*"`;
+    query = query.or(
+      `title.ilike.${term},subtitle.ilike.${term},description.ilike.${term},category_name.ilike.${term}`,
+    );
+  }
+
+  const sortColumn = {
+    newest: 'created_at',
+    'highest-rated': 'average_rating',
+    'most-popular': 'enrolled_count',
+    'price-low': 'price',
+    'price-high': 'price',
+  }[sortBy];
+  const ascending = sortBy === 'price-low';
+  const { data, error, count } = await query
+    .order(sortColumn, { ascending })
+    .range(from, to);
+  if (error) throw new Error(getErrorMessage(error));
+  return { courses: (data ?? []).map((row) => mapCourse(row)), total: count ?? 0 };
+};
+
+export const getCourses = async (options?: CourseFilterOptions): Promise<Course[]> =>
+  (await getCoursesPage(options)).courses;
 
 export const getCourseBySlug = async (slug: string): Promise<Course | undefined> => {
-  await new Promise((resolve) => setTimeout(resolve, 50));
-  if (slug === primaryWebDevCourse.slug) {
-    return primaryWebDevCourse;
-  }
-  return mockCourses.find((c) => c.slug === slug);
+  const { data, error } = await getPublicCourseQuery().select('*').eq('slug', slug).maybeSingle();
+  if (error) throw new Error(getErrorMessage(error));
+  if (!data) return undefined;
+
+  const client = requireSupabase();
+  const [modulesResult, lessonsResult] = await Promise.all([
+    client.from('modules').select('id, course_id, title, position').eq('course_id', data.id).order('position'),
+    client.from('lessons').select('*').eq('course_id', data.id).order('position'),
+  ]);
+  if (modulesResult.error) throw new Error(getErrorMessage(modulesResult.error));
+  if (lessonsResult.error) throw new Error(getErrorMessage(lessonsResult.error));
+
+  const sections = (modulesResult.data ?? []).map((module): CurriculumSection => {
+    const lessons: Lesson[] = (lessonsResult.data ?? [])
+      .filter((lesson) => lesson.module_id === module.id)
+      .map((lesson) => ({
+        id: lesson.id,
+        title: lesson.title,
+        duration: toDuration(lesson.duration_minutes),
+        type: lesson.type,
+        isPreview: lesson.is_preview,
+        videoDurationSeconds: lesson.duration_minutes * 60,
+      }));
+    return { id: module.id, title: module.title, lessons };
+  });
+
+  return mapCourse(data, sections);
 };
 
-export const getFeaturedCourses = async (): Promise<Course[]> => {
-  await new Promise((resolve) => setTimeout(resolve, 40));
-  return mockCourses.slice(0, 4);
-};
-
+export const getFeaturedCourses = async (): Promise<Course[]> =>
+  getCourses({ page: 1, pageSize: 4, sortBy: 'most-popular' });

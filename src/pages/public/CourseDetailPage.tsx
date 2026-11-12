@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Star,
@@ -20,7 +20,6 @@ import {
   Clock,
   ArrowRight,
 } from 'lucide-react';
-import { primaryWebDevCourse, mockCourses } from '../../data/mockData';
 import { getCourseMedia, getInstructorPhoto } from '../../config/media';
 import { formatIDR } from '../../config/currency';
 import { translateCategory, translateLevel } from '../../config/locale';
@@ -28,18 +27,19 @@ import { Button, Card, Avatar, ProgressBar } from '../../components/ui';
 import { CourseCard } from '../../components/course/CourseCard';
 import { useAuth } from '../../context/AuthContext';
 import { useCourses } from '../../context/CourseContext';
+import { getCourseBySlug, getCourses } from '../../services/courseService';
+import { Course } from '../../types';
 
 export const CourseDetailPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const location = useLocation();
   const { isAuthenticated, role } = useAuth();
-  const { enrolledCourses, enrollInCourse } = useCourses();
-
-  // Find course or default to primary Web Dev 2025
-  const course = mockCourses.find((c) => c.slug === slug) || primaryWebDevCourse;
-  const courseMedia = getCourseMedia(course.slug);
-  const instructorPhoto = getInstructorPhoto(course.instructor.id);
+  const { enrolledCourses, enrollInCourse, savedCourseSlugs, toggleSavedCourse } = useCourses();
+  const [course, setCourse] = useState<Course | null>(null);
+  const [relatedCourses, setRelatedCourses] = useState<Course[]>([]);
+  const [isCourseLoading, setIsCourseLoading] = useState(true);
+  const [courseLoadError, setCourseLoadError] = useState('');
 
   const [activeTab, setActiveTab] = useState('overview');
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
@@ -47,37 +47,38 @@ export const CourseDetailPage: React.FC = () => {
     'sec-1': true,
     'sec-4': true,
   });
-  const [isWishlisted, setIsWishlisted] = useState(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem('eduspace_saved_courses') ?? '[]') as string[];
-      return saved.includes(course.slug);
-    } catch (error) {
-      console.error('Gagal membaca kursus tersimpan', error);
-      return false;
-    }
-  });
   const [shareStatus, setShareStatus] = useState('');
+  const [isEnrolling, setIsEnrolling] = useState(false);
   const [enrollmentError, setEnrollmentError] = useState(() => {
     const state = location.state as { enrollmentRoleError?: boolean } | null;
     return state?.enrollmentRoleError
       ? 'Hanya akun peserta yang dapat mengikuti kursus. Silakan masuk sebagai peserta.'
       : '';
   });
-  const isEnrolled = enrolledCourses.some((enrollment) => enrollment.courseSlug === course.slug);
+  const [wishlistError, setWishlistError] = useState('');
 
-  const toggleWishlist = () => {
-    try {
-      const saved = JSON.parse(localStorage.getItem('eduspace_saved_courses') ?? '[]') as string[];
-      const updated = isWishlisted
-        ? saved.filter((savedSlug) => savedSlug !== course.slug)
-        : [...new Set([...saved, course.slug])];
-      localStorage.setItem('eduspace_saved_courses', JSON.stringify(updated));
-      setIsWishlisted(!isWishlisted);
-    } catch (error) {
-      console.error('Gagal memperbarui kursus tersimpan', error);
-      setShareStatus('Kursus tidak dapat disimpan di perangkat ini.');
-    }
-  };
+  useEffect(() => {
+    let active = true;
+    setIsCourseLoading(true);
+    setCourseLoadError('');
+    void Promise.all([
+      slug ? getCourseBySlug(slug) : Promise.resolve(undefined),
+      getCourses({ page: 1, pageSize: 4, sortBy: 'most-popular' }),
+    ]).then(([loadedCourse, loadedRelated]) => {
+      if (!active) return;
+      if (!loadedCourse) {
+        setCourseLoadError('Kursus tidak ditemukan atau belum diterbitkan.');
+        return;
+      }
+      setCourse(loadedCourse);
+      setRelatedCourses(loadedRelated.filter((item) => item.slug !== loadedCourse.slug).slice(0, 3));
+    }).catch((loadError: unknown) => {
+      if (active) setCourseLoadError(loadError instanceof Error ? loadError.message : 'Kursus gagal dimuat.');
+    }).finally(() => {
+      if (active) setIsCourseLoading(false);
+    });
+    return () => { active = false; };
+  }, [slug]);
 
   const shareCourse = async () => {
     try {
@@ -89,7 +90,8 @@ export const CourseDetailPage: React.FC = () => {
     }
   };
 
-  const handleEnroll = () => {
+  const handleEnroll = async () => {
+    if (!course) return;
     setEnrollmentError('');
     if (!isAuthenticated) {
       navigate('/login', {
@@ -105,9 +107,20 @@ export const CourseDetailPage: React.FC = () => {
       navigate('/student/courses');
       return;
     }
+    if (isFull) {
+      setEnrollmentError('Kuota kursus sudah penuh.');
+      return;
+    }
 
-    enrollInCourse(course);
-    navigate('/student/courses', { state: { enrolledCourse: course.title } });
+    setIsEnrolling(true);
+    try {
+      await enrollInCourse(course);
+      navigate('/student/courses', { state: { enrolledCourse: course.title } });
+    } catch (error) {
+      setEnrollmentError(error instanceof Error ? error.message : 'Pendaftaran kursus gagal.');
+    } finally {
+      setIsEnrolling(false);
+    }
   };
 
   const toggleSection = (secId: string) => {
@@ -118,6 +131,7 @@ export const CourseDetailPage: React.FC = () => {
   };
 
   const collapseAllSections = () => {
+    if (!course) return;
     const allOpen = Object.values(openSections).some((val) => val === true);
     if (allOpen) {
       setOpenSections({});
@@ -128,12 +142,12 @@ export const CourseDetailPage: React.FC = () => {
     }
   };
 
-  const tabs = [
+  const tabs = course ? [
     { id: 'overview', label: 'Ringkasan' },
     { id: 'curriculum', label: `Kurikulum (${course.lessonsCount})` },
     { id: 'instructor', label: 'Pengajar' },
     { id: 'reviews', label: `Ulasan (${course.rating})` },
-  ];
+  ] : [];
 
   const handleTabClick = (tabId: string) => {
     setActiveTab(tabId);
@@ -145,10 +159,29 @@ export const CourseDetailPage: React.FC = () => {
     }
   };
 
-  // Related courses
-  const relatedCourses = mockCourses
-    .filter((c) => c.slug !== course.slug)
-    .slice(0, 3);
+  if (isCourseLoading) return <div className="p-12 text-center text-sm text-slate-500">Memuat detail kursus...</div>;
+  if (!course) {
+    return <div role="alert" className="mx-auto my-12 max-w-2xl rounded-xl border border-red/20 bg-red/5 p-6 text-sm text-red">{courseLoadError}</div>;
+  }
+
+  const courseMedia = getCourseMedia(course.slug);
+  const instructorPhoto = getInstructorPhoto(course.instructor.id);
+  const isWishlisted = savedCourseSlugs.includes(course.slug);
+  const isEnrolled = enrolledCourses.some((enrollment) => enrollment.courseSlug === course.slug);
+  const isFull = course.maxParticipants !== null && course.maxParticipants !== undefined
+    && course.enrolledCount >= course.maxParticipants;
+  const toggleWishlist = async () => {
+    setWishlistError('');
+    try {
+      if (!isAuthenticated || role !== 'participant') {
+        setWishlistError('Masuk sebagai peserta untuk menyimpan kursus.');
+        return;
+      }
+      await toggleSavedCourse(course.slug);
+    } catch (saveError) {
+      setWishlistError(saveError instanceof Error ? saveError.message : 'Kursus gagal disimpan.');
+    }
+  };
 
   return (
     <div className="bg-app min-h-screen pb-20">
@@ -611,9 +644,10 @@ export const CourseDetailPage: React.FC = () => {
                     size="lg"
                     fullWidth
                     onClick={handleEnroll}
+                    disabled={isEnrolling || isFull}
                     className="shadow-md"
                   >
-                    {isEnrolled ? 'Lihat Kursus Saya' : 'Daftar Sekarang'}
+                    {isFull && !isEnrolled ? 'Kuota Penuh' : isEnrolling ? 'Memproses...' : isEnrolled ? 'Lihat Kursus Saya' : 'Daftar Sekarang'}
                   </Button>
 
                   <Button
@@ -621,6 +655,7 @@ export const CourseDetailPage: React.FC = () => {
                     size="md"
                     fullWidth
                     onClick={handleEnroll}
+                    disabled={isEnrolling || isFull}
                     className="bg-soft-blue/50 text-blue border-blue/20 hover:bg-soft-blue"
                   >
                     {isEnrolled ? 'Kursus Ditambahkan' : 'Tambah Kursus'}
@@ -673,7 +708,7 @@ export const CourseDetailPage: React.FC = () => {
                 <div className="pt-6 border-t border-border mt-6 flex items-center justify-between">
                   <button
                     type="button"
-                    onClick={toggleWishlist}
+                    onClick={() => void toggleWishlist()}
                     className="flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-navy"
                   >
                     <Heart className={`w-4 h-4 ${isWishlisted ? 'fill-red text-red' : ''}`} />
@@ -690,6 +725,7 @@ export const CourseDetailPage: React.FC = () => {
                   </button>
                 </div>
                 {shareStatus && <p role="status" className="mt-2 text-right text-xs text-slate-500">{shareStatus}</p>}
+                {wishlistError && <p role="alert" className="mt-2 text-right text-xs text-red">{wishlistError}</p>}
               </div>
             </Card>
           </div>

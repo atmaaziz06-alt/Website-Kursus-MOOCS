@@ -192,6 +192,9 @@ export function getCourseMedia(slug: string): CourseMediaItem {
 }
 
 export function getInstructorPhoto(id: string): string {
+  if (id.startsWith('http://') || id.startsWith('https://') || id.startsWith('/')) {
+    return id;
+  }
   if (id && media.people.instructors[id]) {
     return media.people.instructors[id];
   }

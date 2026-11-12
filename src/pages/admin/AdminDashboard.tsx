@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   Users,
@@ -7,130 +7,177 @@ import {
   AlertTriangle,
   Download,
   UserPlus,
-  Search,
-  CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
   ArrowRight,
-  Filter,
 } from 'lucide-react';
 import {
   AreaChart,
+  LineChart,
   Area,
   Line,
   XAxis,
   YAxis,
   Tooltip,
-  ResponsiveContainer,
   PieChart,
   Pie,
   Cell,
+  ResponsiveContainer,
 } from 'recharts';
 import { Card, StatCard, Button, Badge, Avatar } from '../../components/ui';
-import { getCourseMedia, getUserAvatar, getInstructorPhoto } from '../../config/media';
+import { getCourseMedia } from '../../config/media';
 import { translateCategory } from '../../config/locale';
 import { downloadCSV } from '../../utils/download';
+import { getErrorMessage } from '../../lib/errors';
+import { requireSupabase } from '../../lib/supabase';
+import { getAdminGrowthHistory, type AdminGrowthPoint } from '../../services/dashboardService';
+
+type DashboardSummary = {
+  users_by_role: Record<string, number>;
+  courses_by_status: Record<string, number>;
+  enrollments: number;
+};
+
+type PendingCourse = {
+  id: string;
+  title: string;
+  slug: string;
+  teacherName: string;
+  categoryName: string;
+};
+
+const emptySummary: DashboardSummary = {
+  users_by_role: {},
+  courses_by_status: {},
+  enrollments: 0,
+};
+
+const parseDashboardSummary = (value: unknown): DashboardSummary => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return emptySummary;
+  const record = value as Record<string, unknown>;
+  const numberMap = (item: unknown): Record<string, number> => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return {};
+    return Object.fromEntries(
+      Object.entries(item).filter((entry): entry is [string, number] => typeof entry[1] === 'number'),
+    );
+  };
+  return {
+    users_by_role: numberMap(record.users_by_role),
+    courses_by_status: numberMap(record.courses_by_status),
+    enrollments: typeof record.enrollments === 'number' ? record.enrollments : 0,
+  };
+};
 
 export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const [timeframe, setTimeframe] = useState<'30days' | '6months' | 'ytd'>('6months');
   const [userRoleTab, setUserRoleTab] = useState<'all' | 'instructors' | 'students'>('all');
   const [reviewSearch, setReviewSearch] = useState('');
   const [reviewCategory, setReviewCategory] = useState('all');
+  const [summary, setSummary] = useState(emptySummary);
+  const [pendingCourses, setPendingCourses] = useState<PendingCourse[]>([]);
+  const [recentUsers, setRecentUsers] = useState<Array<{
+    id: string;
+    email: string;
+    full_name: string;
+    role: 'participant' | 'instructor' | 'admin';
+    created_at: string;
+  }>>([]);
+  const [categoryData, setCategoryData] = useState<Array<{ name: string; value: number; percent: number; color: string }>>([]);
+  const [growthData, setGrowthData] = useState<AdminGrowthPoint[]>([]);
+  const [dashboardError, setDashboardError] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const totalUsers = Object.values(summary.users_by_role).reduce((total, count) => total + count, 0);
+  const totalInstructors = summary.users_by_role.instructor ?? 0;
+  const totalCourses = Object.values(summary.courses_by_status).reduce((total, count) => total + count, 0);
+  const publishedCourses = summary.courses_by_status.published ?? 0;
+  const archivedCourses = summary.courses_by_status.archived ?? 0;
+  const pendingCourseCount = summary.courses_by_status.pending_review ?? 0;
+  const filteredPendingCourses = pendingCourses.filter((course) => {
+    const matchesSearch = `${course.title} ${course.teacherName}`.toLocaleLowerCase().includes(reviewSearch.toLocaleLowerCase());
+    const matchesCategory = reviewCategory === 'all' || course.categoryName === reviewCategory;
+    return matchesSearch && matchesCategory;
+  });
+  const retentionData = growthData
+    .filter((point) => point.retentionMonth1Percent !== null || point.retentionMonth2Percent !== null)
+    .map((point) => ({
+      month: point.month,
+      retentionMonth1Percent: point.retentionMonth1Percent,
+      retentionMonth2Percent: point.retentionMonth2Percent,
+    }));
 
-  // Multi-line growth chart data (Dec to May)
-  const growthData = [
-    { month: 'Des', students: 12400, instructors: 140 },
-    { month: 'Jan', students: 15100, instructors: 180 },
-    { month: 'Feb', students: 17800, instructors: 210 },
-    { month: 'Mar', students: 19900, instructors: 250 },
-    { month: 'Apr', students: 22400, instructors: 285 },
-    { month: 'Mei', students: 24850, instructors: 312 },
-  ];
+  useEffect(() => {
+    let active = true;
+    const loadDashboard = async () => {
+      setIsLoading(true);
+      setDashboardError('');
+      try {
+        const client = requireSupabase();
+        const [summaryResult, usersResult, pendingResult, courseCategoriesResult, categoriesResult, historyResult] = await Promise.all([
+          client.rpc('admin_dashboard_summary'),
+          client.rpc('admin_list_users', {
+            p_search: '',
+            p_role: null,
+            p_active: null,
+            p_limit: 5,
+            p_offset: 0,
+          }),
+          client.from('courses')
+            .select('id,title,slug,teacher_id,category_id')
+            .eq('status', 'pending_review')
+            .order('created_at', { ascending: false })
+            .limit(1000),
+          client.from('courses').select('category_id'),
+          client.from('categories').select('id,name').eq('is_active', true),
+          getAdminGrowthHistory(),
+        ]);
+        const failedResult = [summaryResult, usersResult, pendingResult, courseCategoriesResult, categoriesResult]
+          .find((result) => result.error);
+        if (failedResult?.error) throw new Error(getErrorMessage(failedResult.error));
 
-  // Donut data: Tech & Software 62 42%, UI/UX & Design 41 28%, Data & AI 27 18%, Business 18 12%
-  const categoryData = [
-    { name: 'Teknologi & Perangkat Lunak', value: 62, percent: 42, color: '#2F4BDB' },
-    { name: 'Desain UI/UX & Produk', value: 41, percent: 28, color: '#E08A00' },
-    { name: 'Rekayasa Data & AI', value: 27, percent: 18, color: '#16A34A' },
-    { name: 'Bisnis & Kepemimpinan', value: 18, percent: 12, color: '#0B1F8F' },
-  ];
+        const pending = pendingResult.data ?? [];
+        const teacherIds = [...new Set(pending.map((course) => course.teacher_id))];
+        const categoryIds = [...new Set(pending.map((course) => course.category_id).filter((id): id is string => Boolean(id)))];
+        const [teachersResult, pendingCategoriesResult] = await Promise.all([
+          teacherIds.length ? client.from('profiles').select('id,full_name').in('id', teacherIds) : Promise.resolve({ data: [], error: null }),
+          categoryIds.length ? client.from('categories').select('id,name').in('id', categoryIds) : Promise.resolve({ data: [], error: null }),
+        ]);
+        if (teachersResult.error) throw new Error(getErrorMessage(teachersResult.error));
+        if (pendingCategoriesResult.error) throw new Error(getErrorMessage(pendingCategoriesResult.error));
 
-  // 4 rows of Courses Awaiting Review
-  const pendingCourses = [
-    {
-      title: 'Next.js 15 Full-Stack & Agen AI',
-      slug: 'full-stack-nextjs-ai',
-      meta: '36 Pelajaran • 18,5 jam',
-      instructor: 'John Smith',
-      instructorId: 'john-smith',
-      category: 'Development',
-      badgeColor: 'development',
-    },
-    {
-      title: 'Deep Learning dengan PyTorch: Dari Tensor hingga LLM',
-      slug: 'deep-learning-pytorch',
-      meta: '30 Pelajaran • 28 jam',
-      instructor: 'Dr. Siti Nurhaliza M.Cs.',
-      instructorId: 'dr-siti',
-      category: 'Technology',
-      badgeColor: 'technology',
-    },
-    {
-      title: 'Arsitektur Sistem Desain Figma: Variables & Token',
-      slug: 'figma-design-system',
-      meta: '24 Pelajaran • 16 jam',
-      instructor: 'Sarah Jenkins',
-      instructorId: 'sarah-jenkins',
-      category: 'Design',
-      badgeColor: 'design',
-    },
-    {
-      title: 'Cloud DevOps dengan Kubernetes: Alur Kerja GitOps',
-      slug: 'cloud-devops-kubernetes',
-      meta: '29 Pelajaran • 24 jam',
-      instructor: 'Marcus Vance',
-      instructorId: 'marcus-vance',
-      category: 'Technology',
-      badgeColor: 'technology',
-    },
-  ];
+        const teachers = new Map((teachersResult.data ?? []).map((teacher) => [teacher.id, teacher.full_name]));
+        const categories = new Map((pendingCategoriesResult.data ?? []).map((category) => [category.id, category.name]));
+        const categoryCounts = new Map<string, number>();
+        for (const course of courseCategoriesResult.data ?? []) {
+          if (course.category_id) categoryCounts.set(course.category_id, (categoryCounts.get(course.category_id) ?? 0) + 1);
+        }
+        const categoryNames = new Map((categoriesResult.data ?? []).map((category) => [category.id, category.name]));
+        const colors = ['#2F4BDB', '#E08A00', '#16A34A', '#0B1F8F'];
 
-  // Recent Users live registrations
-  const recentUsers = [
-    {
-      name: 'Rian Hidayat',
-      email: 'rian.hidayat@eduspace.ac.id',
-      avatarId: 'rian-hidayat',
-      timeAgo: '4 menit lalu',
-      role: 'Peserta',
-      verified: true,
-    },
-    {
-      name: 'Dr. Siti Nurhaliza M.Cs.',
-      email: 'siti.nurhaliza@eduspace.ac.id',
-      avatarId: 'dr-siti',
-      timeAgo: '18 menit lalu',
-      role: 'Pengajar',
-      verified: true,
-    },
-    {
-      name: 'Dian Paramitha',
-      email: 'dian.paramitha@eduspace.ac.id',
-      avatarId: 'dian-paramitha',
-      timeAgo: '1 jam lalu',
-      role: 'Peserta',
-      verified: true,
-    },
-    {
-      name: 'Michael Wong',
-      email: 'michael.wong@eduspace.ac.id',
-      avatarId: 'michael-wong',
-      timeAgo: '3 jam lalu',
-      role: 'Pengajar',
-      verified: false,
-    },
-  ];
+        if (!active) return;
+        setSummary(parseDashboardSummary(summaryResult.data));
+        setGrowthData(historyResult);
+        setRecentUsers(usersResult.data ?? []);
+        setPendingCourses(pending.map((course) => ({
+          id: course.id,
+          title: course.title,
+          slug: course.slug,
+          teacherName: teachers.get(course.teacher_id) ?? 'Pengajar',
+          categoryName: course.category_id ? categories.get(course.category_id) ?? 'Tanpa kategori' : 'Tanpa kategori',
+        })));
+        const categoryTotal = [...categoryCounts.values()].reduce((total, count) => total + count, 0);
+        setCategoryData([...categoryCounts.entries()].map(([id, value], index) => ({
+          name: categoryNames.get(id) ?? 'Tanpa kategori',
+          value,
+          percent: categoryTotal ? Math.round((value / categoryTotal) * 100) : 0,
+          color: colors[index % colors.length],
+        })));
+      } catch (error) {
+        if (active) setDashboardError(getErrorMessage(error));
+      } finally {
+        if (active) setIsLoading(false);
+      }
+    };
+    void loadDashboard();
+    return () => { active = false; };
+  }, []);
 
   return (
     <div className="max-w-[1400px] mx-auto space-y-8">
@@ -157,12 +204,13 @@ export const AdminDashboard: React.FC = () => {
             size="sm"
             onClick={() => downloadCSV('ringkasan-admin.csv', [
               ['Metrik', 'Nilai'],
-              ['Rentang waktu', timeframe],
-              ['Total pengguna', '24850'],
-              ['Total pengajar', '312'],
-              ['Total kursus', '148'],
-              ['Kursus menunggu peninjauan', '14'],
-              ...growthData.map((item) => [`Peserta ${item.month}`, String(item.students)]),
+              ['Total pengguna', String(totalUsers)],
+              ['Total pengajar', String(totalInstructors)],
+              ['Total kursus', String(totalCourses)],
+              ['Kursus aktif', String(publishedCourses)],
+              ['Kursus diarsipkan', String(archivedCourses)],
+              ['Kursus menunggu peninjauan', String(pendingCourseCount)],
+              ['Pendaftaran aktif', String(summary.enrollments)],
             ])}
             leftIcon={<Download className="w-3.5 h-3.5" />}
           >
@@ -179,27 +227,32 @@ export const AdminDashboard: React.FC = () => {
         </div>
       </div>
 
+      {dashboardError && (
+        <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          Gagal memuat ringkasan admin: {dashboardError}
+        </div>
+      )}
+
       {/* 2. 4 STAT CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           label="TOTAL PENGGUNA"
-          value="24,850"
-          subtext="pertumbuhan dibanding bulan lalu"
-          trend={{ value: '+14.2%', isPositive: true }}
+          value={isLoading ? '...' : totalUsers.toLocaleString('id-ID')}
+          subtext="seluruh akun terdaftar"
           icon={<Users className="w-5 h-5" />}
           iconVariant="green"
         />
         <StatCard
           label="TOTAL PENGAJAR"
-          value="312"
-          subtext="+8 menunggu verifikasi"
+          value={isLoading ? '...' : totalInstructors.toLocaleString('id-ID')}
+          subtext={`${summary.users_by_role.admin ?? 0} admin platform`}
           icon={<GraduationCap className="w-5 h-5" />}
           iconVariant="navy"
         />
         <StatCard
           label="TOTAL KURSUS"
-          value="148"
-          subtext="126 Aktif • 22 Diarsipkan"
+          value={isLoading ? '...' : totalCourses.toLocaleString('id-ID')}
+          subtext={`${publishedCourses} aktif • ${archivedCourses} diarsipkan`}
           icon={<BookOpen className="w-5 h-5" />}
           iconVariant="soft-blue"
         />
@@ -216,7 +269,7 @@ export const AdminDashboard: React.FC = () => {
                 </span>
               </div>
               <div className="text-2xl lg:text-3xl font-extrabold text-orange-dark tracking-tight">
-                14
+                {isLoading ? '...' : pendingCourseCount.toLocaleString('id-ID')}
               </div>
             </div>
             <div className="w-11 h-11 rounded-xl bg-orange flex items-center justify-center text-white shrink-0">
@@ -224,12 +277,12 @@ export const AdminDashboard: React.FC = () => {
             </div>
           </div>
           <p className="mt-3 text-xs text-orange-dark/90 font-medium">
-            Perlu ditangani dalam 24 jam
+            Kursus menunggu keputusan admin
           </p>
         </Card>
       </div>
 
-      {/* 3. ROW: User Growth Multi-line Chart + Courses by Category Donut */}
+      {/* 3. ROW: Current platform snapshot + courses by category */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left Column (8 cols): User Growth Multi-line chart */}
         <div className="lg:col-span-8">
@@ -237,42 +290,11 @@ export const AdminDashboard: React.FC = () => {
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
               <div>
                 <h3 className="text-base font-bold text-text-heading">
-                  Pertumbuhan Pengguna & Tren Pendaftaran
+                  Pertumbuhan Pengguna dan Aktivitas Peserta
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Memantau pertumbuhan peserta dan retensi angkatan aktif sepanjang 2025.
+                  Pendaftaran akun dan peserta aktif per bulan dalam 12 bulan terakhir.
                 </p>
-              </div>
-
-              {/* Timeframe Toggle */}
-              <div className="flex items-center p-1 bg-slate-100 rounded-xl text-xs font-bold border border-border">
-                <button
-                  type="button"
-                  onClick={() => setTimeframe('30days')}
-                  className={`px-3 py-1.5 rounded-lg transition-all ${
-                    timeframe === '30days' ? 'bg-white text-navy shadow-sm' : 'text-slate-600'
-                  }`}
-                >
-                  30 Hari Terakhir
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTimeframe('6months')}
-                  className={`px-3 py-1.5 rounded-lg transition-all ${
-                    timeframe === '6months' ? 'bg-white text-navy shadow-sm' : 'text-slate-600'
-                  }`}
-                >
-                  6 Bulan Terakhir
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTimeframe('ytd')}
-                  className={`px-3 py-1.5 rounded-lg transition-all ${
-                    timeframe === 'ytd' ? 'bg-white text-navy shadow-sm' : 'text-slate-600'
-                  }`}
-                >
-                  Sejak Awal Tahun
-                </button>
               </div>
             </div>
 
@@ -287,60 +309,88 @@ export const AdminDashboard: React.FC = () => {
                     </linearGradient>
                   </defs>
                   <XAxis dataKey="month" stroke="#94A3B8" fontSize={11} tickLine={false} />
-                  <YAxis stroke="#94A3B8" fontSize={11} tickLine={false} domain={[0, 30000]} />
+                  <YAxis stroke="#94A3B8" fontSize={11} tickLine={false} allowDecimals={false} />
                   <Tooltip
-                    content={({ active, payload }) => {
-                      if (active && payload && payload.length) {
-                        return (
-                          <div className="bg-navy text-white text-xs p-3 rounded-xl shadow-lg border border-navy-dark">
-                            <span className="font-bold block mb-1">
-                              Puncak Angkatan Mei: 24.850 Pengguna Aktif +18%
-                            </span>
-                            <span className="text-blue-tint block">Peserta: {payload[0]?.value?.toLocaleString()}</span>
-                            <span className="text-orange block">Pengajar: {payload[1]?.value}</span>
-                          </div>
-                        );
-                      }
-                      return null;
-                    }}
+                    contentStyle={{ backgroundColor: '#07164F', borderRadius: '12px', border: '1px solid #263A7A', color: '#fff', fontSize: '12px' }}
+                    labelStyle={{ color: '#fff', fontWeight: 700 }}
+                    formatter={(value, name) => [Number(value).toLocaleString('id-ID'), name]}
                   />
-                  {/* Solid Blue Line + Gradient Fill */}
                   <Area
                     type="monotone"
-                    dataKey="students"
+                    dataKey="participants"
+                    name="Peserta baru"
                     stroke="#2F4BDB"
                     strokeWidth={3}
                     fillOpacity={1}
                     fill="url(#studentGrowthGrad)"
                   />
-                  {/* Dashed Orange Line for Instructors */}
                   <Line
                     type="monotone"
                     dataKey="instructors"
+                    name="Pengajar baru"
                     stroke="#E08A00"
                     strokeWidth={2}
                     strokeDasharray="5 5"
+                    dot={false}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="activeParticipants"
+                    name="Peserta aktif"
+                    stroke="#16A34A"
+                    strokeWidth={2}
                     dot={false}
                   />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
 
+            <div className="mt-5 border-t border-border pt-5">
+              <h4 className="text-sm font-bold text-text-heading">Retensi peserta berdasarkan kohor pendaftaran</h4>
+              <p className="mt-1 text-xs text-slate-500">
+                Persentase peserta yang kembali menyelesaikan materi atau mengirim kuis pada bulan berikutnya. Bulan yang belum selesai tidak dihitung.
+              </p>
+              {retentionData.length ? (
+                <div className="mt-3 h-44 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={retentionData} margin={{ top: 8, right: 12, left: -18, bottom: 0 }}>
+                      <XAxis dataKey="month" stroke="#94A3B8" fontSize={10} tickLine={false} />
+                      <YAxis
+                        stroke="#94A3B8"
+                        fontSize={10}
+                        tickLine={false}
+                        domain={[0, 100]}
+                        tickFormatter={(value: number) => `${value}%`}
+                      />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: '#07164F', borderRadius: '12px', border: '1px solid #263A7A', color: '#fff', fontSize: '12px' }}
+                        formatter={(value, name) => [`${Number(value).toLocaleString('id-ID')}%`, name]}
+                      />
+                      <Line type="monotone" dataKey="retentionMonth1Percent" name="Bulan ke-1" stroke="#2F4BDB" strokeWidth={2} connectNulls dot={false} />
+                      <Line type="monotone" dataKey="retentionMonth2Percent" name="Bulan ke-2" stroke="#E08A00" strokeWidth={2} connectNulls dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <p className="mt-4 rounded-lg bg-slate-50 p-4 text-xs text-slate-500">
+                  Belum ada kohor pendaftaran yang cukup lama untuk menghitung retensi bulanan.
+                </p>
+              )}
+            </div>
+
             {/* Footer Legend */}
             <div className="pt-4 border-t border-border mt-4 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
               <div className="flex items-center gap-2">
                 <span className="w-3 h-3 rounded-full bg-blue" />
-                <span className="text-slate-600 font-medium">Peserta (24.538)</span>
+                <span className="text-slate-600 font-medium">Peserta baru/bulan</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="w-3 h-1 border-t-2 border-dashed border-orange" />
-                <span className="text-slate-600 font-medium">Pengajar (312)</span>
+                <span className="text-slate-600 font-medium">Pengajar baru/bulan</span>
               </div>
-              <div className="text-slate-500 font-medium">
-                Pertumbuhan Puncak: <strong className="text-navy">+1.240 per minggu</strong>
-              </div>
-              <div className="text-slate-500 font-medium">
-                Retensi Angkatan: <strong className="text-green">94,1%</strong>
+              <div className="flex items-center gap-2 text-xs">
+                <span className="w-3 h-1 border-t-2 border-green" />
+                <span className="text-slate-600 font-medium">Peserta aktif/bulan</span>
               </div>
             </div>
           </Card>
@@ -372,7 +422,7 @@ export const AdminDashboard: React.FC = () => {
               </ResponsiveContainer>
               {/* Center 148 COURSES */}
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-xl font-extrabold text-text-heading">148</span>
+                <span className="text-xl font-extrabold text-text-heading">{totalCourses}</span>
                 <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">
                   KURSUS
                 </span>
@@ -410,7 +460,7 @@ export const AdminDashboard: React.FC = () => {
                     Kursus Menunggu Peninjauan
                   </h3>
                   <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-xs font-bold">
-                    14 Menunggu
+                    {pendingCourseCount} Menunggu
                   </span>
                 </div>
                 <p className="text-xs text-slate-500">
@@ -433,9 +483,9 @@ export const AdminDashboard: React.FC = () => {
                   className="bg-slate-50 text-xs rounded-xl border border-border px-2.5 py-1.5 focus:outline-none focus:border-blue cursor-pointer"
                 >
                   <option value="all">Semua Kategori</option>
-                  <option value="development">Pemrograman</option>
-                  <option value="technology">Teknologi</option>
-                  <option value="design">Desain</option>
+                  {categoryData.map((category) => (
+                    <option key={category.name} value={category.name}>{category.name}</option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -452,11 +502,10 @@ export const AdminDashboard: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
-                  {pendingCourses.map((c) => {
+                  {filteredPendingCourses.map((c) => {
                     const cMedia = getCourseMedia(c.slug);
-                    const instPhoto = getInstructorPhoto(c.instructorId);
                     return (
-                      <tr key={c.slug} className="hover:bg-slate-50 transition-colors">
+                      <tr key={c.id} className="hover:bg-slate-50 transition-colors">
                         <td className="py-3.5">
                           <div className="flex items-center gap-3">
                             <div className="w-14 h-9 rounded-lg overflow-hidden bg-slate-200 shrink-0">
@@ -464,20 +513,17 @@ export const AdminDashboard: React.FC = () => {
                             </div>
                             <div>
                               <span className="font-bold text-text-heading block line-clamp-1">{c.title}</span>
-                              <span className="text-[10px] text-slate-400">{c.meta}</span>
                             </div>
                           </div>
                         </td>
                         <td className="py-3.5">
                           <div className="flex items-center gap-2">
-                            <Avatar src={instPhoto} name={c.instructor} size="xs" />
-                            <span className="font-medium text-slate-700">{c.instructor}</span>
+                            <Avatar name={c.teacherName} size="xs" />
+                            <span className="font-medium text-slate-700">{c.teacherName}</span>
                           </div>
                         </td>
                         <td className="py-3.5">
-                          <Badge variant={c.badgeColor as any} size="xs">
-                            {translateCategory(c.category)}
-                          </Badge>
+                          <Badge variant="neutral" size="xs">{translateCategory(c.categoryName)}</Badge>
                         </td>
                         <td className="py-3.5 text-right">
                           <button
@@ -490,14 +536,20 @@ export const AdminDashboard: React.FC = () => {
                         </td>
                       </tr>
                     );
-                  })}
+                    })}
+                  {!filteredPendingCourses.length && (
+                    <tr>
+                      <td colSpan={4} className="py-8 text-center text-slate-400">
+                        {isLoading ? 'Memuat antrean...' : 'Tidak ada kursus yang cocok dengan filter.'}
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
 
-            {/* This summary only contains the four courses shown above. */}
             <div className="pt-4 border-t border-border mt-4 flex items-center justify-between text-xs text-slate-500">
-              <span>Menampilkan {pendingCourses.length} kursus yang menunggu tinjauan</span>
+              <span>Menampilkan {filteredPendingCourses.length} dari {pendingCourseCount} kursus menunggu tinjauan</span>
               <button type="button" onClick={() => navigate('/admin/courses-review')} className="font-bold text-blue hover:text-navy">
                 Buka antrean tinjauan →
               </button>
@@ -554,34 +606,35 @@ export const AdminDashboard: React.FC = () => {
             <div className="space-y-3 mb-6">
               {recentUsers
                 .filter((u) => {
-                  if (userRoleTab === 'instructors') return u.role === 'Pengajar';
-                  if (userRoleTab === 'students') return u.role === 'Peserta';
+                  if (userRoleTab === 'instructors') return u.role === 'instructor';
+                  if (userRoleTab === 'students') return u.role === 'participant';
                   return true;
                 })
                 .map((u) => (
-                  <div key={u.email} className="flex items-center justify-between gap-3 text-xs">
+                  <div key={u.id} className="flex items-center justify-between gap-3 text-xs">
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="relative">
-                        <Avatar src={getUserAvatar(u.avatarId)} name={u.name} size="xs" />
-                        <span className="w-2 h-2 rounded-full bg-green absolute -bottom-0.5 -right-0.5 ring-1 ring-white" />
-                      </div>
+                      <Avatar name={u.full_name} size="xs" />
                       <div className="min-w-0">
-                        <div className="flex items-center gap-1">
-                          <span className="font-bold text-text-heading truncate">{u.name}</span>
-                          {u.verified && <CheckCircle2 className="w-3 h-3 text-blue shrink-0" />}
-                        </div>
+                        <span className="font-bold text-text-heading truncate block">{u.full_name}</span>
                         <span className="text-[11px] text-slate-400 truncate block">{u.email}</span>
                       </div>
                     </div>
 
                     <div className="text-right shrink-0">
-                      <span className="text-[10px] text-slate-400 block mb-0.5">{u.timeAgo}</span>
-                      <Badge variant={u.role === 'Instructor' ? 'orange' : 'preview-free'} size="xs">
-                        {u.role}
+                      <span className="text-[10px] text-slate-400 block mb-0.5">
+                        {new Date(u.created_at).toLocaleDateString('id-ID')}
+                      </span>
+                      <Badge variant={u.role === 'instructor' ? 'orange' : 'preview-free'} size="xs">
+                        {u.role === 'instructor' ? 'Pengajar' : u.role === 'admin' ? 'Admin' : 'Peserta'}
                       </Badge>
                     </div>
                   </div>
                 ))}
+              {!recentUsers.length && (
+                <p className="py-4 text-center text-xs text-slate-400">
+                  {isLoading ? 'Memuat pengguna...' : 'Belum ada data pengguna.'}
+                </p>
+              )}
             </div>
 
             <Button

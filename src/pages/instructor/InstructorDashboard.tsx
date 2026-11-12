@@ -1,17 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Users,
   BookOpen,
   Award,
   CheckCircle2,
-  TrendingUp,
   Download,
   Plus,
-  AlertCircle,
-  Clock,
-  ArrowRight,
-  Sparkles,
+  Upload,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -23,26 +19,94 @@ import {
 } from 'recharts';
 import { Card, StatCard, Button } from '../../components/ui';
 import { useCourses } from '../../context/CourseContext';
+import { useAuth } from '../../context/AuthContext';
 import { formatIDR } from '../../config/currency';
 import { translateCategory, translateLevel } from '../../config/locale';
 import { downloadCSV } from '../../utils/download';
+import { getErrorMessage } from '../../lib/errors';
+import { getInstructorDashboardAnalytics, type InstructorDashboardAnalytics } from '../../services/dashboardService';
 
 export const InstructorDashboard: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { user } = useAuth();
   const { instructorCourses } = useCourses();
   const [timeRange, setTimeRange] = useState<'30days' | '6months' | 'ytd'>('30days');
+  const [analytics, setAnalytics] = useState<InstructorDashboardAnalytics>({
+    totalEnrollments: 0,
+    quizSubmissionCount: 0,
+    averageQuizScore: null,
+    enrollmentHistory: [],
+  });
+  const [analyticsError, setAnalyticsError] = useState('');
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
+  const [chartReferenceDate] = useState(() => new Date());
   const createdCourse = instructorCourses.find((course) => course.id === searchParams.get('created'));
+  const courseIdsKey = instructorCourses.map((course) => course.id).sort().join(',');
+  const courseIds = useMemo(() => courseIdsKey ? courseIdsKey.split(',') : [], [courseIdsKey]);
+  const publishedCourses = instructorCourses.filter((course) => course.status === 'Published').length;
+  const pendingCourses = instructorCourses.filter((course) => course.status === 'Pending review').length;
 
-  const chartData = [
-    { day: 'Hari 1', enrollments: 120 },
-    { day: 'Hari 5', enrollments: 180 },
-    { day: 'Hari 10', enrollments: 240 },
-    { day: 'Hari 15', enrollments: 210 },
-    { day: 'Hari 20', enrollments: 320 },
-    { day: 'Hari 25', enrollments: 280 },
-    { day: 'Hari 30', enrollments: 305 },
-  ];
+  useEffect(() => {
+    if (!user?.id) return;
+    let active = true;
+    void getInstructorDashboardAnalytics(user.id, courseIds).then((result) => {
+      if (active) {
+        setAnalytics(result);
+        setAnalyticsError('');
+      }
+    }).catch((error: unknown) => {
+      if (active) setAnalyticsError(getErrorMessage(error));
+    }).finally(() => {
+      if (active) setAnalyticsLoading(false);
+    });
+    return () => { active = false; };
+  }, [courseIds, user?.id]);
+
+  const chartData = useMemo(() => {
+    const now = chartReferenceDate;
+    const start = new Date(now);
+    if (timeRange === '30days') {
+      start.setUTCDate(start.getUTCDate() - 29);
+      start.setUTCHours(0, 0, 0, 0);
+      const dailyCounts = new Map<string, number>();
+      for (const enrollment of analytics.enrollmentHistory) {
+        const key = new Date(enrollment.date).toISOString().slice(0, 10);
+        dailyCounts.set(key, (dailyCounts.get(key) ?? 0) + 1);
+      }
+      return Array.from({ length: 30 }, (_, index) => {
+        const date = new Date(start);
+        date.setUTCDate(start.getUTCDate() + index);
+        const key = date.toISOString().slice(0, 10);
+        return {
+          period: date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', timeZone: 'UTC' }),
+          enrollments: dailyCounts.get(key) ?? 0,
+        };
+      });
+    }
+
+    start.setUTCDate(1);
+    start.setUTCHours(0, 0, 0, 0);
+    if (timeRange === '6months') start.setUTCMonth(now.getUTCMonth() - 5);
+    else start.setUTCMonth(0);
+    const monthCounts = new Map<string, number>();
+    for (const enrollment of analytics.enrollmentHistory) {
+      const date = new Date(enrollment.date);
+      const key = `${date.getUTCFullYear()}-${date.getUTCMonth()}`;
+      monthCounts.set(key, (monthCounts.get(key) ?? 0) + 1);
+    }
+    const periods = timeRange === '6months' ? 6 : now.getUTCMonth() + 1;
+    return Array.from({ length: periods }, (_, index) => {
+      const date = new Date(start);
+      date.setUTCMonth(start.getUTCMonth() + index);
+      const key = `${date.getUTCFullYear()}-${date.getUTCMonth()}`;
+      return {
+        period: date.toLocaleDateString('id-ID', { month: 'short', year: '2-digit', timeZone: 'UTC' }),
+        enrollments: monthCounts.get(key) ?? 0,
+      };
+    });
+  }, [analytics.enrollmentHistory, chartReferenceDate, timeRange]);
+  const peakEnrollments = chartData.reduce((peak, point) => Math.max(peak, point.enrollments), 0);
 
   return (
     <div className="max-w-[1200px] mx-auto space-y-8">
@@ -51,10 +115,10 @@ export const InstructorDashboard: React.FC = () => {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <h1 className="text-2xl sm:text-3xl font-extrabold text-text-heading">
-              Selamat datang kembali, John!
+              Selamat datang kembali, {user?.name?.split(' ')[0] ?? 'Pengajar'}!
             </h1>
             <span className="px-2.5 py-0.5 rounded-full bg-orange-tint text-orange-dark text-xs font-bold uppercase">
-              MUSIM PANAS 2025
+              PUSAT PENGAJAR
             </span>
           </div>
           <p className="text-xs sm:text-sm text-slate-500">
@@ -104,6 +168,11 @@ export const InstructorDashboard: React.FC = () => {
           </div>
         </div>
       )}
+      {analyticsError && (
+        <p role="alert" className="rounded-xl border border-red/20 bg-red/5 px-4 py-3 text-sm text-red">
+          Gagal memuat analitik pengajar: {analyticsError}
+        </p>
+      )}
 
       {instructorCourses.length > 0 && (
         <Card className="overflow-hidden">
@@ -139,6 +208,15 @@ export const InstructorDashboard: React.FC = () => {
                 >
                   {course.status === 'Published' ? 'Terbit' : 'Draf'}
                 </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate(`/instructor/courses/${course.id}`)}
+                  leftIcon={<Upload className="h-3.5 w-3.5" />}
+                >
+                  Kelola materi
+                </Button>
               </li>
             ))}
           </ul>
@@ -149,30 +227,29 @@ export const InstructorDashboard: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           label="TOTAL KURSUS"
-          value="12"
-          subtext="2 draf menunggu peninjauan silabus"
+          value={String(instructorCourses.length)}
+          subtext={`${pendingCourses} menunggu peninjauan`}
           icon={<BookOpen className="w-5 h-5" />}
           iconVariant="soft-blue"
         />
         <StatCard
-          label="TOTAL PESERTA"
-          value="3,480"
-          subtext="pertumbuhan dibanding bulan lalu"
-          trend={{ value: '+18.4%', isPositive: true }}
+          label="PENDAFTARAN PESERTA"
+          value={analyticsLoading ? '...' : analytics.totalEnrollments.toLocaleString('id-ID')}
+          subtext="Pada seluruh kursusmu"
           icon={<Users className="w-5 h-5" />}
           iconVariant="navy"
         />
         <StatCard
           label="KURSUS TERBIT"
-          value="8"
+          value={String(publishedCourses)}
           subtext="Tersedia di katalog kursus"
           icon={<CheckCircle2 className="w-5 h-5" />}
           iconVariant="green"
         />
         <StatCard
           label="RATA-RATA NILAI KUIS"
-          value="86.5%"
-          subtext="Dari total 1.420 jawaban"
+          value={analyticsLoading ? '...' : analytics.averageQuizScore === null ? '—' : `${analytics.averageQuizScore}%`}
+          subtext={`${analyticsLoading ? '...' : analytics.quizSubmissionCount.toLocaleString('id-ID')} pengumpulan`}
           icon={<Award className="w-5 h-5" />}
           iconVariant="orange"
         />
@@ -190,11 +267,11 @@ export const InstructorDashboard: React.FC = () => {
                     Pendaftaran Peserta
                   </h3>
                   <span className="px-2 py-0.5 rounded-full bg-green-tint text-green text-[11px] font-bold">
-                    +1.240 peserta
+                  {analyticsLoading ? '...' : `${analytics.totalEnrollments.toLocaleString('id-ID')} pendaftaran`}
                   </span>
                 </div>
                 <p className="text-xs text-slate-500">
-                  Jumlah peserta baru pada 8 bootcamp aktif yang telah diterbitkan.
+                  Pendaftaran baru pada kursusmu berdasarkan periode yang dipilih.
                 </p>
               </div>
 
@@ -240,7 +317,7 @@ export const InstructorDashboard: React.FC = () => {
                       <stop offset="95%" stopColor="#2F4BDB" stopOpacity={0.0} />
                     </linearGradient>
                   </defs>
-                  <XAxis dataKey="day" stroke="#94A3B8" fontSize={11} tickLine={false} />
+                  <XAxis dataKey="period" stroke="#94A3B8" fontSize={11} tickLine={false} />
                   <YAxis stroke="#94A3B8" fontSize={11} tickLine={false} />
                   <Tooltip
                     contentStyle={{
@@ -265,10 +342,10 @@ export const InstructorDashboard: React.FC = () => {
               </ResponsiveContainer>
 
               {/* Peak Annotation pill */}
-              <div className="absolute top-2 right-24 bg-white border border-border shadow-soft rounded-lg px-2.5 py-1 text-[11px] font-bold text-navy flex items-center gap-1">
+              {peakEnrollments > 0 && <div className="absolute top-2 right-24 bg-white border border-border shadow-soft rounded-lg px-2.5 py-1 text-[11px] font-bold text-navy flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-orange" />
-                <span>Puncak: 320 per hari</span>
-              </div>
+                <span>Puncak: {peakEnrollments} pendaftaran</span>
+              </div>}
             </div>
           </Card>
         </div>
@@ -276,42 +353,18 @@ export const InstructorDashboard: React.FC = () => {
         {/* Right Column (4 cols): Cohort Attention Card */}
         <div className="lg:col-span-4">
           <Card className="p-6">
-            <div className="flex items-center justify-between pb-3 border-b border-border mb-4">
-              <h3 className="text-sm font-bold text-text-heading">PERHATIAN PESERTA</h3>
-              <span className="px-2 py-0.5 rounded-full bg-orange-tint text-orange-dark text-[10px] font-extrabold uppercase">
-                Perlu Tindakan
-              </span>
-            </div>
-
-            <div className="space-y-4">
-              <div className="p-4 rounded-xl bg-slate-50 border border-border">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-xs font-bold text-text-heading">Pertanyaan Forum Belum Dijawab</span>
-                  <span className="px-2 py-0.5 rounded-full bg-orange text-white text-xs font-bold">
-                    4 Menunggu
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500 mb-3">
-                  Pertanyaan di forum diskusi arsitektur React Hooks Modul 4.
-                </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  fullWidth
-                  onClick={() => navigate('/instructor/courses/course-web-dev-2025')}
-                >
-                  Buka Antrean Forum
-                </Button>
-              </div>
-
-              {/* Educational Tip Box */}
-              <div className="p-4 rounded-xl bg-soft-blue/40 border border-blue/20 text-xs text-slate-700 leading-relaxed">
-                <div className="flex items-center gap-1.5 text-blue font-bold mb-1">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>Wawasan Retensi</span>
-                </div>
-                Respons cepat dalam 2 jam dapat meningkatkan retensi peserta dan kelulusan bootcamp hingga <strong>24%</strong>.
-              </div>
+            <h3 className="text-sm font-bold text-text-heading">AKSES CEPAT</h3>
+            <p className="mt-2 text-xs text-slate-500">Tindak lanjuti peserta dan hasil kuis berdasarkan data kursusmu.</p>
+            <div className="mt-5 space-y-3">
+              <Button variant="outline" size="sm" fullWidth onClick={() => navigate('/instructor/students')}>
+                Lihat daftar peserta
+              </Button>
+              <Button variant="outline" size="sm" fullWidth onClick={() => navigate('/instructor/quiz-results')}>
+                Buka analitik kuis
+              </Button>
+              <Button variant="orange" size="sm" fullWidth onClick={() => navigate('/instructor/messages')}>
+                Pesan peserta
+              </Button>
             </div>
           </Card>
         </div>

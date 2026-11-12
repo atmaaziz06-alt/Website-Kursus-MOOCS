@@ -1,101 +1,87 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Award, CheckCircle2, Clock, ArrowRight, RotateCcw } from 'lucide-react';
+import { Award, ArrowRight, Clock } from 'lucide-react';
 import { Card, Button, Badge } from '../../components/ui';
+import { useAuth } from '../../context/AuthContext';
+import { getStudentQuizHistory, StudentQuizHistoryItem } from '../../services/learningAnalyticsService';
+
+const formatDuration = (seconds: number) =>
+  `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
 
 export const StudentQuizResults: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [results, setResults] = useState<StudentQuizHistoryItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const quizzes = [
-    {
-      id: 'quiz-react-hooks',
-      title: 'Kuis 1: Dasar React & Frontend',
-      course: 'Bootcamp Pengembangan Web 2025',
-      module: 'Modul 4: Arsitektur React & Frontend',
-      score: 80,
-      total: 100,
-      grade: 'B+',
-      status: 'Passed',
-      date: '28 Mei 2025',
-      timeTaken: '12:30 / 20:00',
-    },
-    {
-      id: 'quiz-mod-1',
-      title: 'Kuis 01: Dasar Web & DOM Tree',
-      course: 'Bootcamp Pengembangan Web 2025',
-      module: 'Modul 1: Dasar Web Modern',
-      score: 90,
-      total: 100,
-      grade: 'A',
-      status: 'Passed',
-      date: '14 Mei 2025',
-      timeTaken: '10:45 / 15:00',
-    },
-    {
-      id: 'quiz-py-1',
-      title: 'Kuis 01: Pola Pemrograman Berorientasi Objek Python',
-      course: 'Belajar Pemrograman Python dari Nol',
-      module: 'Modul 3: Kelas & Pewarisan',
-      score: 100,
-      total: 100,
-      grade: 'A+',
-      status: 'Passed',
-      date: '22 April 2025',
-      timeTaken: '14:10 / 20:00',
-    },
-  ];
+  useEffect(() => {
+    let active = true;
+    if (!user) return;
+    setIsLoading(true);
+    setError('');
+    void getStudentQuizHistory(user.id)
+      .then((history) => { if (active) setResults(history); })
+      .catch((loadError: unknown) => {
+        if (active) setError(loadError instanceof Error ? loadError.message : 'Riwayat kuis gagal dimuat.');
+      })
+      .finally(() => { if (active) setIsLoading(false); });
+    return () => { active = false; };
+  }, [user]);
 
   return (
-    <div className="max-w-[1200px] mx-auto space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-extrabold text-text-heading">Evaluasi & Riwayat Kuis</h1>
-          <p className="text-xs text-slate-500 mt-1">Lihat kuis modul yang telah diselesaikan, rincian nilai, dan masukan pengajar</p>
-        </div>
-      </div>
+    <div className="mx-auto max-w-[1200px] space-y-6">
+      <header>
+        <h1 className="text-2xl font-extrabold text-text-heading">Evaluasi & Riwayat Kuis</h1>
+        <p className="mt-1 text-xs text-slate-500">Nilai dan waktu pengerjaan dari percobaan kuis yang tersimpan.</p>
+      </header>
 
-      <div className="space-y-4">
-        {quizzes.map((q) => (
-          <Card key={q.id} className="p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-green-tint text-green flex items-center justify-center shrink-0 border border-green/20">
-                <Award className="w-6 h-6" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <Badge variant="active" size="xs">
-                    {q.status === 'Passed' ? 'Lulus' : 'Belum Lulus'} (Nilai: {q.grade})
-                  </Badge>
-                  <span className="text-xs text-slate-400">• Diselesaikan pada {q.date}</span>
+      {error && <p role="alert" className="rounded-xl border border-red/20 bg-red/5 p-3 text-sm text-red">{error}</p>}
+      {isLoading ? (
+        <Card className="p-8 text-center text-sm text-slate-500">Memuat riwayat kuis...</Card>
+      ) : results.length ? (
+        <div className="space-y-4">
+          {results.map((result) => (
+            <Card key={result.attemptId} className="flex flex-col items-start justify-between gap-6 p-6 sm:flex-row sm:items-center">
+              <div className="flex items-start gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-green/20 bg-green-tint text-green">
+                  <Award className="h-6 w-6" />
                 </div>
-                <h3 className="text-base font-bold text-text-heading mb-1">{q.title}</h3>
-                <p className="text-xs text-slate-500">{q.course} • {q.module}</p>
-                <div className="flex items-center gap-4 text-xs text-slate-500 mt-2">
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5 text-slate-400" />
-                    Waktu: {q.timeTaken}
+                <div>
+                  <div className="mb-1 flex flex-wrap items-center gap-2">
+                    <Badge variant={result.passed ? 'active' : 'in-review'} size="xs">
+                      {result.passed ? 'Lulus' : 'Belum lulus'} · {result.score.toFixed(1)}%
+                    </Badge>
+                    <span className="text-xs text-slate-400">
+                      {new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(result.submittedAt))}
+                    </span>
+                  </div>
+                  <h2 className="text-base font-bold text-text-heading">{result.title}</h2>
+                  <p className="mt-1 text-xs text-slate-500">{result.courseTitle} · {result.moduleTitle}</p>
+                  <span className="mt-2 inline-flex items-center gap-1 text-xs text-slate-500">
+                    <Clock className="h-3.5 w-3.5 text-slate-400" /> Waktu: {formatDuration(result.timeTakenSeconds)}
                   </span>
                 </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4 self-end sm:self-center">
-              <div className="text-right">
-                <span className="text-2xl font-extrabold text-navy block leading-none">{q.score}</span>
-                <span className="text-[10px] text-slate-400 uppercase font-semibold">/ {q.total} Poin</span>
               </div>
               <Button
                 variant="navy"
                 size="sm"
-                onClick={() => navigate(`/quiz/${q.id}/result`)}
-                rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
+                onClick={() => navigate(`/quiz/${result.quizId}/result?attempt=${encodeURIComponent(result.attemptId)}`)}
+                rightIcon={<ArrowRight className="h-3.5 w-3.5" />}
               >
                 Lihat Rincian Nilai
               </Button>
-            </div>
-          </Card>
-        ))}
-      </div>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <Card className="p-8 text-center">
+          <Award className="mx-auto h-8 w-8 text-slate-300" />
+          <p className="mt-3 font-semibold text-text-heading">Belum ada hasil kuis</p>
+          <p className="mt-1 text-sm text-slate-500">Hasil kuis yang sudah dikirim akan muncul di halaman ini.</p>
+          <Button className="mt-4" variant="outline" onClick={() => navigate('/student/courses')}>Lihat kursus saya</Button>
+        </Card>
+      )}
     </div>
   );
 };
