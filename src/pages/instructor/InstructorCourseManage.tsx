@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { ArrowDown, ArrowLeft, ArrowUp, BookOpen, FileText, Pencil, Plus, Send, Trash2, Upload } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import rehypeSanitize from 'rehype-sanitize';
 import { Badge, Button, Card, Input, Select } from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
 import { getErrorMessage } from '../../lib/errors';
@@ -10,8 +12,11 @@ import { getVideoEmbedUrl, validateLessonFile } from '../../utils/lessonMedia';
 type CourseRow = {
   id: string;
   title: string;
+  subtitle: string;
   slug: string;
   description: string;
+  learning_outcomes: string[];
+  requirements: string[];
   category_id: string | null;
   level: string;
   price: number;
@@ -26,6 +31,7 @@ type LessonRow = {
   title: string;
   type: 'video' | 'pdf' | 'lab' | 'text';
   duration_minutes: number;
+  is_preview: boolean;
   position: number;
 };
 type LessonContentRow = {
@@ -88,9 +94,11 @@ export const InstructorCourseManage: React.FC = () => {
   const [lessonContent, setLessonContent] = useState('');
   const [lessonVideoUrl, setLessonVideoUrl] = useState('');
   const [lessonFile, setLessonFile] = useState<File | null>(null);
+  const [lessonIsPreview, setLessonIsPreview] = useState(false);
   const [editingLessonId, setEditingLessonId] = useState('');
   const [editingLessonTitle, setEditingLessonTitle] = useState('');
   const [editingLessonDuration, setEditingLessonDuration] = useState('10');
+  const [editingLessonIsPreview, setEditingLessonIsPreview] = useState(false);
   const [editingLessonContent, setEditingLessonContent] = useState('');
   const [editingLessonVideoUrl, setEditingLessonVideoUrl] = useState('');
   const [editingLessonFile, setEditingLessonFile] = useState<File | null>(null);
@@ -112,7 +120,7 @@ export const InstructorCourseManage: React.FC = () => {
     const client = requireSupabase();
     const { data: course, error: courseError } = await client
       .from('courses')
-      .select('id, title, slug, description, category_id, level, price, status, review_note, thumbnail_path')
+      .select('id, title, subtitle, slug, description, learning_outcomes, requirements, category_id, level, price, status, review_note, thumbnail_path')
       .eq('id', id)
       .maybeSingle();
     if (courseError) throw new Error(getErrorMessage(courseError));
@@ -120,7 +128,7 @@ export const InstructorCourseManage: React.FC = () => {
 
     const [modulesResult, lessonsResult, quizzesResult, categoriesResult] = await Promise.all([
       client.from('modules').select('id, course_id, title, position').eq('course_id', id).order('position'),
-      client.from('lessons').select('id, module_id, title, type, duration_minutes, position').eq('course_id', id).order('position'),
+      client.from('lessons').select('id, module_id, title, type, duration_minutes, is_preview, position').eq('course_id', id).order('position'),
       client.from('quizzes').select('id, module_id, title, time_limit_minutes, passing_score, max_attempts, is_published')
         .eq('course_id', id).order('created_at'),
       client.from('categories').select('id, name').order('name'),
@@ -192,7 +200,10 @@ export const InstructorCourseManage: React.FC = () => {
     void runAction(async () => {
       const { error: saveError } = await requireSupabase().from('courses').update({
         title: String(fields.get('title')).trim(),
+        subtitle: String(fields.get('subtitle')).trim(),
         description: String(fields.get('description')).trim(),
+        learning_outcomes: String(fields.get('learning_outcomes') ?? '').split(/\r?\n/).map((item) => item.trim()).filter(Boolean),
+        requirements: String(fields.get('requirements') ?? '').split(/\r?\n/).map((item) => item.trim()).filter(Boolean),
         category_id: String(fields.get('category_id')) || null,
         level: String(fields.get('level')),
         price: Number(fields.get('price')),
@@ -237,7 +248,7 @@ export const InstructorCourseManage: React.FC = () => {
       const { error: insertError } = await requireSupabase().from('modules').insert({
         course_id: id,
         title: moduleTitle.trim(),
-        position: data.modules.length,
+        position: Math.max(-1, ...data.modules.map((module) => module.position)) + 1,
       });
       if (insertError) throw new Error(getErrorMessage(insertError));
       setModuleTitle('');
@@ -277,6 +288,7 @@ export const InstructorCourseManage: React.FC = () => {
     setEditingLessonId(lesson.id);
     setEditingLessonTitle(lesson.title);
     setEditingLessonDuration(String(lesson.duration_minutes));
+    setEditingLessonIsPreview(lesson.is_preview);
     setEditingLessonContent(content?.content ?? '');
     setEditingLessonVideoUrl(content?.video_url ?? '');
     setEditingLessonFile(null);
@@ -287,13 +299,19 @@ export const InstructorCourseManage: React.FC = () => {
     if (!data || !editingLessonId || !editingLessonTitle.trim()) return;
     const lesson = data.lessons.find((item) => item.id === editingLessonId);
     if (!lesson) return;
-    if (lesson.type === 'pdf' && !data.lessonContents.find((item) => item.lesson_id === lesson.id)?.file_path && !editingLessonFile) {
+    const existingContent = data.lessonContents.find((item) => item.lesson_id === lesson.id);
+    if (lesson.type === 'pdf' && !existingContent?.file_path && !editingLessonFile) {
       setError('Pilih berkas PDF untuk materi bertipe PDF.');
       return;
     }
     if (lesson.type === 'video' && !editingLessonVideoUrl.trim() &&
-      !data.lessonContents.find((item) => item.lesson_id === lesson.id)?.file_path && !editingLessonFile) {
+      !existingContent?.file_path && !editingLessonFile) {
       setError('Isi URL video atau pilih berkas video.');
+      return;
+    }
+    if ((lesson.type === 'text' || lesson.type === 'lab') && !editingLessonContent.trim()
+      && !existingContent?.file_path && !editingLessonFile) {
+      setError('Materi tulisan atau praktik perlu berisi Markdown atau berkas pendukung.');
       return;
     }
     if (lesson.type === 'video' && editingLessonVideoUrl.trim() && !getVideoEmbedUrl(editingLessonVideoUrl.trim())) {
@@ -333,6 +351,7 @@ export const InstructorCourseManage: React.FC = () => {
       const { error: lessonError } = await client.from('lessons').update({
         title: editingLessonTitle.trim(),
         duration_minutes: Math.max(0, Number(editingLessonDuration) || 0),
+        is_preview: editingLessonIsPreview,
       }).eq('id', lesson.id);
       if (lessonError) {
         if (newFilePath) {
@@ -352,6 +371,7 @@ export const InstructorCourseManage: React.FC = () => {
         const { error: rollbackError } = await client.from('lessons').update({
           title: lesson.title,
           duration_minutes: lesson.duration_minutes,
+          is_preview: lesson.is_preview,
         }).eq('id', lesson.id);
         if (rollbackError) console.error('Metadata materi perlu dipulihkan setelah isi materi gagal disimpan.', rollbackError);
         if (newFilePath) {
@@ -407,6 +427,10 @@ export const InstructorCourseManage: React.FC = () => {
       setError('Pilih tautan video atau berkas video, jangan keduanya sekaligus.');
       return;
     }
+    if ((lessonType === 'text' || lessonType === 'lab') && !lessonContent.trim() && !lessonFile) {
+      setError('Materi tulisan atau praktik perlu berisi Markdown atau berkas pendukung.');
+      return;
+    }
     if (lessonFile) {
       const fileError = validateLessonFile(lessonFile, lessonType);
       if (fileError) {
@@ -417,13 +441,15 @@ export const InstructorCourseManage: React.FC = () => {
     void runAction(async () => {
       const client = requireSupabase();
       const moduleLessons = data.lessons.filter((lesson) => lesson.module_id === lessonModuleId);
+      const nextPosition = Math.max(-1, ...moduleLessons.map((lesson) => lesson.position)) + 1;
       const { data: lesson, error: insertError } = await client.from('lessons').insert({
         module_id: lessonModuleId,
         course_id: id,
         title: lessonTitle.trim(),
         type: lessonType,
         duration_minutes: Math.max(0, Number(lessonDuration) || 0),
-        position: moduleLessons.length,
+        is_preview: lessonIsPreview,
+        position: nextPosition,
       }).select('id').single();
       if (insertError) throw new Error(getErrorMessage(insertError));
 
@@ -458,6 +484,7 @@ export const InstructorCourseManage: React.FC = () => {
       setLessonContent('');
       setLessonVideoUrl('');
       setLessonFile(null);
+      setLessonIsPreview(false);
     }, 'Materi ditambahkan.');
   };
 
@@ -646,6 +673,29 @@ export const InstructorCourseManage: React.FC = () => {
         </div>
       )}
 
+      <Card className="space-y-4 border-blue/20 bg-soft-blue/30 p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="font-bold text-text-heading">Mulai menyiapkan materi</h2>
+            <p className="mt-1 text-sm text-slate-600">Buat modul, tambahkan isi pelajaran, lalu ajukan kursus untuk ditinjau.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <a href="#course-curriculum" className="rounded-lg border border-border bg-white px-3 py-2 text-sm font-semibold text-blue hover:bg-slate-50">
+              Buka kurikulum
+            </a>
+            <a href="#add-course-lesson" className="rounded-lg bg-blue px-3 py-2 text-sm font-semibold text-white hover:bg-blue/90">
+              Tambah materi
+            </a>
+          </div>
+        </div>
+        <ol className="grid gap-2 text-xs text-slate-600 sm:grid-cols-4">
+          <li><span className="font-bold text-blue">1.</span> Tambahkan modul.</li>
+          <li><span className="font-bold text-blue">2.</span> Pilih jenis materi dan isi kontennya.</li>
+          <li><span className="font-bold text-blue">3.</span> Simpan; tandai pratinjau bila diinginkan.</li>
+          <li><span className="font-bold text-blue">4.</span> Ajukan setelah semua materi siap.</li>
+        </ol>
+      </Card>
+
       <Card className="space-y-5 p-5 sm:p-7">
         <div className="flex items-center gap-3">
           <BookOpen className="h-5 w-5 text-blue" />
@@ -653,11 +703,28 @@ export const InstructorCourseManage: React.FC = () => {
         </div>
         <form onSubmit={saveCourse} className="space-y-4">
           <Input name="title" label="Judul kursus" defaultValue={data.course.title} required maxLength={160} />
+          <Input name="subtitle" label="Subjudul" defaultValue={data.course.subtitle} maxLength={180} required />
           <label className="block text-xs font-semibold text-text-heading">
             Deskripsi
             <textarea name="description" rows={4} defaultValue={data.course.description} required maxLength={10000}
               className="mt-1.5 w-full rounded-xl border border-border px-3 py-2.5 text-sm focus:border-blue focus:outline-none" />
           </label>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block text-xs font-semibold text-text-heading">
+              Capaian pembelajaran
+              <span className="mt-1 block font-normal text-slate-500">Satu capaian per baris.</span>
+              <textarea name="learning_outcomes" rows={4} maxLength={2000}
+                defaultValue={data.course.learning_outcomes.join('\n')}
+                className="mt-1.5 w-full rounded-xl border border-border px-3 py-2.5 text-sm focus:border-blue focus:outline-none" />
+            </label>
+            <label className="block text-xs font-semibold text-text-heading">
+              Persyaratan
+              <span className="mt-1 block font-normal text-slate-500">Satu persyaratan per baris.</span>
+              <textarea name="requirements" rows={4} maxLength={2000}
+                defaultValue={data.course.requirements.join('\n')}
+                className="mt-1.5 w-full rounded-xl border border-border px-3 py-2.5 text-sm focus:border-blue focus:outline-none" />
+            </label>
+          </div>
           <div className="grid gap-4 sm:grid-cols-3">
             <Select name="category_id" label="Kategori" defaultValue={data.course.category_id ?? ''}
               options={data.categories.map((category) => ({ value: category.id, label: category.name }))} />
@@ -679,7 +746,7 @@ export const InstructorCourseManage: React.FC = () => {
         </div>
       </Card>
 
-      <Card className="space-y-5 p-5 sm:p-7">
+      <Card id="course-curriculum" className="scroll-mt-6 space-y-5 p-5 sm:p-7">
         <div>
           <h2 className="text-lg font-bold text-text-heading">Kurikulum</h2>
           <p className="mt-1 text-xs text-slate-500">Perubahan modul dan materi langsung tersimpan di Supabase.</p>
@@ -703,7 +770,7 @@ export const InstructorCourseManage: React.FC = () => {
               <ul className="mt-3 space-y-2">
                 {data.lessons.filter((lesson) => lesson.module_id === module.id).map((lesson, lessonIndex, moduleLessons) => (
                   <li key={lesson.id} className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 text-sm">
-                    <span className="flex items-center gap-2"><FileText className="h-4 w-4 shrink-0 text-blue" />{lesson.title} <span className="text-xs text-slate-400">{lesson.type} · {lesson.duration_minutes} mnt</span></span>
+                    <span className="flex items-center gap-2"><FileText className="h-4 w-4 shrink-0 text-blue" />{lesson.title} <span className="text-xs text-slate-400">{lesson.type} · {lesson.duration_minutes} mnt</span>{lesson.is_preview && <span className="rounded-full bg-soft-blue px-2 py-0.5 text-[10px] font-bold text-blue">Pratinjau gratis</span>}</span>
                     <span className="flex shrink-0 items-center gap-1">
                       <Button type="button" variant="outline" size="sm" disabled={isSaving} onClick={() => renameLesson(lesson)} aria-label={`Ubah judul ${lesson.title}`}><Pencil className="h-4 w-4" /></Button>
                       <Button type="button" variant="outline" size="sm" disabled={isSaving} onClick={() => editLesson(lesson)} aria-label={`Ubah isi ${lesson.title}`}>Isi</Button>
@@ -725,6 +792,23 @@ export const InstructorCourseManage: React.FC = () => {
                           <span className="mt-1 block font-normal text-slate-500">Gunakan Markdown untuk judul, daftar, tautan, dan format tulisan. HTML mentah tidak dijalankan.</span>
                           <textarea rows={5} value={editingLessonContent} onChange={(event) => setEditingLessonContent(event.target.value)}
                             className="mt-1.5 w-full rounded-xl border border-border px-3 py-2.5 text-sm focus:border-blue focus:outline-none" />
+                      </label>
+                      {editingLessonContent.trim() && (
+                        <details className="rounded-lg border border-border bg-white p-3">
+                          <summary className="cursor-pointer text-xs font-semibold text-blue">Pratinjau tulisan</summary>
+                          <article className="prose prose-sm mt-3 max-w-none text-slate-700">
+                            <ReactMarkdown rehypePlugins={[rehypeSanitize]}>{editingLessonContent}</ReactMarkdown>
+                          </article>
+                        </details>
+                      )}
+                      <label className="flex items-center gap-2 text-sm text-slate-700">
+                        <input
+                          type="checkbox"
+                          checked={editingLessonIsPreview}
+                          onChange={(event) => setEditingLessonIsPreview(event.target.checked)}
+                          className="h-4 w-4 rounded border-border text-blue focus:ring-blue"
+                        />
+                        Jadikan materi ini pratinjau gratis
                       </label>
                       {lesson.type === 'video' && (
                         <div>
@@ -752,8 +836,11 @@ export const InstructorCourseManage: React.FC = () => {
           ))}
         </div>
 
-        <form onSubmit={addLesson} className="space-y-4 border-t border-border pt-5">
-          <h3 className="font-bold text-text-heading">Tambah materi</h3>
+        <form id="add-course-lesson" onSubmit={addLesson} className="scroll-mt-6 space-y-4 border-t border-border pt-5">
+          <div>
+            <h3 className="font-bold text-text-heading">Tambah materi</h3>
+            <p className="mt-1 text-xs text-slate-500">Pilih modul dan jenisnya, lalu isi materi Markdown atau unggah berkas yang sesuai.</p>
+          </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <Select label="Modul" value={lessonModuleId} onChange={(event) => setLessonModuleId(event.target.value)}
               options={data.modules.map((module) => ({ value: module.id, label: module.title }))} required />
@@ -788,6 +875,23 @@ export const InstructorCourseManage: React.FC = () => {
               <span className="mt-1 block font-normal text-slate-500">Materi tulisan disimpan sebagai Markdown dan akan ditampilkan dengan aman kepada peserta.</span>
               <textarea rows={5} value={lessonContent} onChange={(event) => setLessonContent(event.target.value)}
                 className="mt-1.5 w-full rounded-xl border border-border px-3 py-2.5 text-sm focus:border-blue focus:outline-none" />
+          </label>
+          {lessonContent.trim() && (
+            <details className="rounded-lg border border-border bg-white p-3">
+              <summary className="cursor-pointer text-xs font-semibold text-blue">Pratinjau tulisan</summary>
+              <article className="prose prose-sm mt-3 max-w-none text-slate-700">
+                <ReactMarkdown rehypePlugins={[rehypeSanitize]}>{lessonContent}</ReactMarkdown>
+              </article>
+            </details>
+          )}
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={lessonIsPreview}
+              onChange={(event) => setLessonIsPreview(event.target.checked)}
+              className="h-4 w-4 rounded border-border text-blue focus:ring-blue"
+            />
+            Jadikan materi ini pratinjau gratis
           </label>
           <Button type="submit" variant="navy" disabled={isSaving || !data.modules.length} leftIcon={<Plus className="h-4 w-4" />}>Tambah materi</Button>
         </form>

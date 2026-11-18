@@ -51,7 +51,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ isOpen, onCl
       case 'instructor':
         return [
           { label: 'Dasbor', path: '/instructor', icon: <LayoutDashboard className="w-4 h-4" /> },
-          { label: 'Kursus Saya', path: '/instructor/courses/course-web-dev-2025', icon: <BookOpen className="w-4 h-4" /> },
+          { label: 'Kursus & Materi', path: '/instructor?section=courses', icon: <BookOpen className="w-4 h-4" /> },
           { label: 'Buat Kursus', path: '/instructor/courses/new', icon: <PlusCircle className="w-4 h-4 text-orange" />, badge: 'BARU', badgeColor: 'bg-orange text-white' },
           { label: 'Peserta', path: '/instructor/students', icon: <Users className="w-4 h-4" /> },
           { label: 'Hasil Kuis', path: '/instructor/quiz-results', icon: <Award className="w-4 h-4" /> },
@@ -94,8 +94,13 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ isOpen, onCl
   };
 
   const isActive = (itemPath: string) => {
+    const [pathname, query] = itemPath.split('?');
+    if (query) {
+      return location.pathname === pathname && location.search === `?${query}`;
+    }
     if (itemPath === '/student' || itemPath === '/instructor' || itemPath === '/admin') {
-      return location.pathname === itemPath;
+      return location.pathname === itemPath
+        && !(itemPath === '/instructor' && location.search === '?section=courses');
     }
     return location.pathname.startsWith(itemPath);
   };

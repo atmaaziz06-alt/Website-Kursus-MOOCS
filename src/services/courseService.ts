@@ -19,6 +19,13 @@ export interface CoursePage {
   total: number;
 }
 
+export interface CourseReview {
+  id: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+}
+
 type PublicCourseRow = Database['public']['Views']['v_public_courses']['Row'];
 
 const categories: CourseCategory[] = [
@@ -165,6 +172,21 @@ export const getCourseBySlug = async (slug: string): Promise<Course | undefined>
   });
 
   return mapCourse(data, sections);
+};
+
+export const getCourseReviews = async (courseId: string): Promise<CourseReview[]> => {
+  const { data, error } = await requireSupabase().from('course_reviews')
+    .select('id, rating, comment, created_at')
+    .eq('course_id', courseId)
+    .order('created_at', { ascending: false })
+    .limit(10);
+  if (error) throw new Error(getErrorMessage(error));
+  return (data ?? []).map((review) => ({
+    id: review.id,
+    rating: review.rating,
+    comment: review.comment,
+    createdAt: review.created_at,
+  }));
 };
 
 export const getFeaturedCourses = async (): Promise<Course[]> =>

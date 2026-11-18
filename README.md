@@ -45,13 +45,14 @@ The core Supabase-backed authentication, course, learning, quiz, and admin flows
 
 - Supabase Auth is used for registration, login, password recovery, and role/profile lookup. Public registration always creates a participant account; instructor access requires admin approval.
 - The public course catalog reads published courses from Supabase. Course enrollment and lesson-progress writes use database RPC functions.
+- Paid-course enrollment is still a simulation; no real payment gateway or transaction processing is configured.
 - Instructors can create a course draft. Publishing is intentionally not offered from the initial course form: a course must have a thumbnail and learning materials before it can be submitted for admin review.
-- Instructors can edit course details and thumbnails, add/reorder/delete modules, add/rename/reorder/delete lessons, and manage lesson video links (YouTube/Vimeo), video/PDF/image files, and Markdown text. Lesson media is stored in the private `lesson-files` bucket, while learners receive signed URLs; Markdown is sanitized when rendered. Instructors can also create quizzes and questions, and submit courses for review. Quiz questions can be edited or deleted only before any attempt has been submitted for that quiz, preserving historical results.
+- Instructors can edit course details, subtitles, learning outcomes, requirements, and thumbnails; add/reorder/delete modules; and add/rename/reorder/delete lessons. Lessons support YouTube/Vimeo links, MP4/WebM files up to 10 MB, PDF/image attachments, and Markdown text. Lesson media is stored in the private `lesson-files` bucket, while learners receive refreshed signed URLs; Markdown is sanitized when rendered. Published courses can expose selected lessons as free previews. Instructors can also create quizzes and questions, and submit courses for review only after each lesson has valid content. Quiz questions can be edited or deleted only before any attempt has been submitted for that quiz, preserving historical results.
 - Learners can access enrolled course content, save notes/bookmarks and lesson progress, take quizzes, and view server-scored attempt reviews and submitted-attempt history. Student dashboard hours are estimated from completed lesson durations; quiz averages use submitted attempts; weekly activity and category breakdowns use completion timestamps. Saved courses and notifications are stored in Supabase.
 - Instructor student rosters, course progress, quiz summaries/submissions, and instructor-to-student messages read/write Supabase data under RLS. Instructor dashboard totals and enrollment charts are derived from that instructor's courses and participant records. Participants can also view their instructor conversations and reply from the student inbox. Admin course review, user management, categories, dashboard totals, review queue, recent-user list, monthly account growth, monthly active learner activity, and one-/two-month participant cohort retention are Supabase-backed. Retention counts a participant as active when they complete a lesson or submit a quiz in the follow-up month.
 - `npm run seed` creates/reuses test users and seeds six courses (five published with two modules, four lessons, and five questions each), uploads sample thumbnails/PDFs, and adds representative enrollments, progress, quiz attempts, payments, saved courses, notes, notifications, messages, and reviews. It is repeatable for the fixed demo IDs; rerunning it refreshes demo rows.
-- To seed, copy `.env.seed.example` to `.env.seed.local`, then fill in `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `SEED_PASSWORD` (minimum 12 characters). The seed script reads that file only; keep it private and never commit or deploy it. `npm run seed -- --dry-run` prints planned counts without connecting to Supabase.
-- Migrations `0001`–`0010` must be applied in order before using all instructor course-management features. Migration `0009` adds guarded quiz-question update/delete RPCs; `0010` allows lesson images in the private `lesson-files` bucket and its instructor upload policy. The SQL Editor setup creates categories but no test accounts or sample courses.
+- To seed, copy `.env.seed.example` to `.env.seed.local` and fill in `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`; the full seed also requires `SEED_PASSWORD` (minimum 12 characters). The seed script reads that file only; keep it private and never commit or deploy it. `npm run seed -- --dry-run` prints planned counts without connecting to Supabase. Use `npm run seed -- --materials-only` to refresh only the six demo courses' learning outcomes, modules, lessons, lesson contents, and worksheets; it does not modify accounts, enrollments, payments, or existing quizzes/attempts. Add `--dry-run` to inspect counts without connecting.
+- Migrations `0001`–`0011` must be applied in order before using all instructor course-management features. Migration `0009` adds guarded quiz-question update/delete RPCs; `0010` allows lesson images in the private `lesson-files` bucket and its instructor upload policy; `0011` enables RLS-protected public previews and requires valid lesson content before review. The SQL Editor setup creates categories but no test accounts or sample courses.
 
 ---
 
@@ -83,7 +84,8 @@ The core Supabase-backed authentication, course, learning, quiz, and admin flows
 ### 4. Interactive Learning & Timed Exam Rooms
 | Path | Page Description |
 |---|---|
-| `/learn/:courseSlug/:lessonId` | **Learning Room**: Lesson content and private lesson files are loaded from Supabase; learner notes, bookmarks, and progress are persisted |
+| `/learn/:courseSlug/:lessonId` | **Learning Room**: Enrolled learners can view lesson content and private files; notes, bookmarks, and progress are persisted |
+| `/preview/:courseSlug/:lessonId` | **Free Lesson Preview**: Publicly displays only lessons explicitly enabled as previews by the instructor |
 | `/quiz/:quizId` | **Timed Exam Environment**: Quiz questions and attempts are loaded from Supabase; answers and review flags are saved, and submission is scored server-side |
 | `/quiz/:quizId/result` | **Quiz Evaluation Report**: Displays the persisted attempt score and server-provided question review |
 
@@ -92,7 +94,7 @@ The core Supabase-backed authentication, course, learning, quiz, and admin flows
 |---|---|
 | `/instructor` | **Instructor Hub**: Instructor-owned courses, enrollment totals/history, published/pending course counts, and quiz averages/submission totals from Supabase |
 | `/instructor/courses/new` | **Create Course**: Create a Supabase course draft |
-| `/instructor/courses/:id` | **Course Manager**: Edit course details and lesson content, manage modules and lessons, upload files, create and manage quiz questions, and submit the course for review |
+| `/instructor/courses/:id` | **Course Manager**: Edit course details and learning outcomes, manage modules and lessons, author Markdown/video/PDF/image content, enable free previews, manage quiz questions, and submit the course for review |
 | `/instructor/students` | **Student Roster**: Learners enrolled in the instructor's courses, syllabus progress, average quiz score, CSV export, and messaging |
 | `/instructor/quiz-results` | **Gradebook Analytics**: Per-quiz submissions, averages, pass rates, learner results, and CSV export |
 

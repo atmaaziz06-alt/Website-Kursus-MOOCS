@@ -57,6 +57,7 @@ export const App: React.FC = () => {
               <Route path="/courses" element={<CoursesPage />} />
               <Route path="/courses/:slug" element={<CourseDetailPage />} />
             </Route>
+            <Route path="/preview/:courseSlug/:lessonId" element={<LessonLearnPage previewMode />} />
 
             {/* 2. Auth Routes */}
             <Route path="/login" element={<LoginPage />} />

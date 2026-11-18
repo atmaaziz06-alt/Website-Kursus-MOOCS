@@ -23,7 +23,11 @@ interface CourseContextType {
   isLoading: boolean;
   error: string | null;
   createInstructorCourse: (
-    course: Omit<InstructorCourse, 'id' | 'createdAt' | 'status'>,
+    course: Omit<InstructorCourse, 'id' | 'createdAt' | 'status'> & {
+      subtitle: string;
+      learningOutcomes: string[];
+      requirements: string[];
+    },
   ) => Promise<InstructorCourse>;
   enrollInCourse: (course: Course) => Promise<void>;
   markLessonCompleted: (courseSlug: string, lessonId: string) => Promise<void>;
@@ -246,7 +250,11 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [refreshCourses]);
 
   const createInstructorCourse = async (
-    course: Omit<InstructorCourse, 'id' | 'createdAt' | 'status'>,
+    course: Omit<InstructorCourse, 'id' | 'createdAt' | 'status'> & {
+      subtitle: string;
+      learningOutcomes: string[];
+      requirements: string[];
+    },
   ): Promise<InstructorCourse> => {
     if (!user || role !== 'instructor') throw new Error('Hanya pengajar yang dapat membuat kursus.');
     const client = requireSupabase();
@@ -269,8 +277,11 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       category_id: category.id,
       title: course.title,
       slug: `${slugBase}-${crypto.randomUUID().slice(0, 8)}`,
+      subtitle: course.subtitle,
       description: course.description,
       level: course.level,
+      learning_outcomes: course.learningOutcomes,
+      requirements: course.requirements,
       price: course.price,
       original_price: course.price,
       status: 'draft',

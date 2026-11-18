@@ -17,6 +17,7 @@ describe('lesson media helpers', () => {
   });
 
   it('validates media by lesson type and size', () => {
+    expect(validateLessonFile(new File([new Uint8Array(10 * 1024 * 1024)], 'limit.pdf', { type: 'application/pdf' }), 'pdf')).toBeNull();
     expect(validateLessonFile(new File(['image'], 'diagram.png', { type: 'image/png' }), 'text')).toBeNull();
     expect(validateLessonFile(new File(['pdf'], 'notes.pdf', { type: 'application/pdf' }), 'lab')).toBeNull();
     expect(validateLessonFile(new File(['image'], 'image.png', { type: 'image/png' }), 'pdf')).toContain('PDF');

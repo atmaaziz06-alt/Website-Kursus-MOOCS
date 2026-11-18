@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { deflateSync } from 'node:zlib';
 import { createClient } from '@supabase/supabase-js';
+import { courseMaterials, validateCourseMaterials } from './courseMaterials.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const envPath = resolve(root, '.env.seed.local');
@@ -85,22 +86,6 @@ const courseSeeds = [
     price: 159000,
     status: 'pending_review',
   },
-];
-
-const optionLabels = ['A', 'B', 'C', 'D'];
-const questionPrompts = [
-  'Apa tujuan utama dari materi pada modul ini?',
-  'Langkah mana yang paling tepat untuk memulai pekerjaan?',
-  'Apa manfaat memeriksa hasil sebelum melanjutkan?',
-  'Bagaimana cara memilih pendekatan yang sesuai kebutuhan?',
-  'Apa tindakan yang tepat setelah hasil dievaluasi?',
-];
-const optionSets = [
-  ['Memahami kebutuhan dan tujuan', 'Menambah langkah tanpa alasan', 'Mengabaikan konteks pengguna', 'Menghapus hasil pekerjaan'],
-  ['Membuat rencana berdasarkan kebutuhan', 'Langsung melewati pemeriksaan', 'Mengubah semua pengaturan sekaligus', 'Mengabaikan data yang tersedia'],
-  ['Menemukan kesalahan dan memperbaiki hasil', 'Memastikan tidak ada evaluasi', 'Menghilangkan catatan proses', 'Mengulang langkah tanpa perubahan'],
-  ['Membandingkan pilihan dengan kriteria', 'Memilih secara acak', 'Menggunakan satu cara untuk semua kasus', 'Mengabaikan batasan proyek'],
-  ['Mencatat temuan dan menentukan perbaikan', 'Menghapus semua catatan', 'Menghentikan evaluasi', 'Mengabaikan umpan balik'],
 ];
 
 function stableUuid(value) {
@@ -188,13 +173,12 @@ function pdfText(value) {
   return value.normalize('NFKD').replace(/[^\x20-\x7e]/g, '').replace(/[()\\]/g, '\\$&');
 }
 
-function createSamplePdf(title, lessonTitle) {
+function createSamplePdf(title, lessonTitle, worksheetLines) {
   const lines = [
-    'EduSpace - Materi Contoh',
+    'EduSpace - Lembar Kerja',
     title,
     lessonTitle,
-    'Dokumen contoh untuk pengujian akses materi privat.',
-    'Ringkas kembali tujuan, langkah, dan hasil belajar pada materi ini.',
+    ...worksheetLines,
   ];
   const commands = ['BT', '/F1 18 Tf', '72 740 Td'];
   lines.forEach((line, index) => {
@@ -277,7 +261,107 @@ async function ensureUsers(client, seedPassword) {
   return userIds;
 }
 
+async function seedLearningMaterials(client, courses, { includeAssessments = true } = {}) {
+  validateCourseMaterials(courseSeeds);
+  const modules = [];
+  const lessons = [];
+  const lessonContents = [];
+  for (const course of courses) {
+    const material = courseMaterials[course.slug];
+    const moduleIds = material.moduleTitles.map((_, index) => stableUuid(`module:${course.slug}:${index + 1}`));
+    modules.push(...material.moduleTitles.map((title, index) => ({
+      id: moduleIds[index],
+      course_id: course.id,
+      title,
+      position: index,
+    })));
+    for (const [lessonIndex, spec] of material.lessons.entries()) {
+      const moduleIndex = spec.moduleIndex ?? Math.floor(lessonIndex / 2);
+      const lessonId = stableUuid(`lesson:${course.slug}:${spec.stableKey}`);
+      const filePath = spec.type === 'pdf' ? `${course.id}/${lessonId}/materi-contoh.pdf` : null;
+      lessons.push({
+        id: lessonId,
+        module_id: moduleIds[moduleIndex],
+        course_id: course.id,
+        title: spec.title,
+        type: spec.type,
+        duration_minutes: spec.duration,
+        is_preview: Boolean(spec.isPreview),
+        position: spec.position ?? lessonIndex % 2,
+      });
+      lessonContents.push({
+        lesson_id: lessonId,
+        content: spec.content,
+        video_url: null,
+        file_path: filePath,
+      });
+      if (filePath) {
+        const upload = await client.storage.from('lesson-files').upload(
+          filePath,
+          createSamplePdf(course.title, spec.title, spec.pdfLines),
+          { contentType: 'application/pdf', upsert: true },
+        );
+        if (upload.error) throw new Error(`Gagal mengunggah lembar kerja ${course.slug}: ${upload.error.message}`);
+      }
+    }
+  }
+  await assertNoError(await client.from('modules').upsert(modules, { onConflict: 'id' }), 'Gagal menyimpan modul seed');
+  await assertNoError(await client.from('lessons').upsert(lessons, { onConflict: 'id' }), 'Gagal menyimpan materi seed');
+  await assertNoError(await client.from('lesson_contents').upsert(lessonContents, { onConflict: 'lesson_id' }), 'Gagal menyimpan isi materi seed');
+
+  if (!includeAssessments) return { modules, lessons, quizzes: [], questions: [] };
+
+  const optionLabels = ['A', 'B', 'C', 'D'];
+  const quizzes = courses.map((course) => ({
+    id: stableUuid(`quiz:${course.slug}`),
+    course_id: course.id,
+    module_id: stableUuid(`module:${course.slug}:2`),
+    title: `Kuis: ${course.title}`,
+    time_limit_minutes: 20,
+    passing_score: 80,
+    max_attempts: 3,
+    is_published: course.status === 'published',
+  }));
+  await assertNoError(await client.from('quizzes').upsert(quizzes, { onConflict: 'id' }), 'Gagal menyimpan kuis seed');
+
+  const questions = [];
+  const options = [];
+  const keys = [];
+  for (const [courseIndex, course] of courses.entries()) {
+    const courseQuestions = courseMaterials[course.slug].questions;
+    for (const [index, item] of courseQuestions.entries()) {
+      const questionId = stableUuid(`question:${course.slug}:${index + 1}`);
+      questions.push({
+        id: questionId,
+        quiz_id: quizzes[courseIndex].id,
+        topic: item.topic,
+        text: item.text,
+        code_snippet: null,
+        position: index,
+        points: 20,
+      });
+      const optionIds = optionLabels.map((label) => stableUuid(`option:${course.slug}:${index + 1}:${label}`));
+      options.push(...optionLabels.map((label, optionIndex) => ({
+        id: optionIds[optionIndex],
+        question_id: questionId,
+        label,
+        text: item.options[optionIndex],
+      })));
+      keys.push({
+        question_id: questionId,
+        correct_option_id: optionIds[item.correctIndex],
+        explanation: item.explanation,
+      });
+    }
+  }
+  await assertNoError(await client.from('questions').upsert(questions, { onConflict: 'id' }), 'Gagal menyimpan soal seed');
+  await assertNoError(await client.from('question_options').upsert(options, { onConflict: 'id' }), 'Gagal menyimpan opsi seed');
+  await assertNoError(await client.from('question_keys').upsert(keys, { onConflict: 'question_id' }), 'Gagal menyimpan kunci jawaban seed');
+  return { modules, lessons, quizzes, questions };
+}
+
 async function runSeed(client, userIds) {
+  validateCourseMaterials(courseSeeds);
   const { data: categoryRows, error: categoryError } = await client
     .from('categories')
     .select('id, slug')
@@ -298,8 +382,8 @@ async function runSeed(client, userIds) {
     description: seed.description,
     level: 'Beginner',
     language: 'id',
-    learning_outcomes: ['Memahami konsep utama', 'Menerapkan langkah kerja', 'Mengevaluasi hasil'],
-    requirements: ['Akses internet', 'Kesediaan mengikuti latihan'],
+    learning_outcomes: courseMaterials[seed.slug].learningOutcomes,
+    requirements: courseMaterials[seed.slug].requirements,
     thumbnail_path: `${userIds.get(instructors[seed.instructor].email)}/${stableUuid(`course:${seed.slug}`)}/thumbnail.png`,
     price: seed.price,
     original_price: seed.price ? Math.round(seed.price * 1.25) : 0,
@@ -311,50 +395,8 @@ async function runSeed(client, userIds) {
   }));
   await assertNoError(await client.from('courses').upsert(courses, { onConflict: 'id' }), 'Gagal menyimpan kursus seed');
 
-  const modules = [];
-  const lessons = [];
-  const lessonContents = [];
+  const { modules, lessons, quizzes, questions } = await seedLearningMaterials(client, courses);
   for (const [courseIndex, course] of courses.entries()) {
-    const firstModuleId = stableUuid(`module:${course.slug}:1`);
-    const secondModuleId = stableUuid(`module:${course.slug}:2`);
-    modules.push(
-      { id: firstModuleId, course_id: course.id, title: 'Konsep dan Persiapan', position: 0 },
-      { id: secondModuleId, course_id: course.id, title: 'Praktik dan Evaluasi', position: 1 },
-    );
-    const lessonSpecs = [
-      { moduleId: firstModuleId, position: 0, type: 'video', title: 'Tujuan dan Peta Belajar', duration: 12 },
-      { moduleId: firstModuleId, position: 1, type: 'text', title: 'Konsep Inti', duration: 18 },
-      { moduleId: secondModuleId, position: 0, type: 'pdf', title: 'Latihan dan Ringkasan', duration: 20 },
-      { moduleId: secondModuleId, position: 1, type: 'text', title: 'Refleksi dan Langkah Berikutnya', duration: 10 },
-    ];
-    for (const spec of lessonSpecs) {
-      const lessonId = stableUuid(`lesson:${course.slug}:${spec.title}`);
-      const filePath = spec.type === 'pdf' ? `${course.id}/${lessonId}/materi-contoh.pdf` : null;
-      lessons.push({
-        id: lessonId,
-        module_id: spec.moduleId,
-        course_id: course.id,
-        title: spec.title,
-        type: spec.type,
-        duration_minutes: spec.duration,
-        is_preview: spec.type === 'video',
-        position: spec.position,
-      });
-      lessonContents.push({
-        lesson_id: lessonId,
-        content: `${course.title}: materi ${spec.title}. Ikuti penjelasan, catat poin penting, lalu kerjakan latihan mandiri.`,
-        video_url: spec.type === 'video' ? 'https://www.youtube-nocookie.com/embed/ScMzIvxBSi4' : null,
-        file_path: filePath,
-      });
-      if (filePath) {
-        const upload = await client.storage.from('lesson-files').upload(
-          filePath,
-          createSamplePdf(course.title, spec.title),
-          { contentType: 'application/pdf', upsert: true },
-        );
-        if (upload.error) throw new Error(`Gagal mengunggah PDF ${course.slug}: ${upload.error.message}`);
-      }
-    }
     const thumbnailPath = course.thumbnail_path;
     const thumbnail = await client.storage.from('course-thumbnails').upload(
       thumbnailPath,
@@ -363,54 +405,6 @@ async function runSeed(client, userIds) {
     );
     if (thumbnail.error) throw new Error(`Gagal mengunggah thumbnail ${course.slug}: ${thumbnail.error.message}`);
   }
-  await assertNoError(await client.from('modules').upsert(modules, { onConflict: 'id' }), 'Gagal menyimpan modul seed');
-  await assertNoError(await client.from('lessons').upsert(lessons, { onConflict: 'id' }), 'Gagal menyimpan materi seed');
-  await assertNoError(await client.from('lesson_contents').upsert(lessonContents, { onConflict: 'lesson_id' }), 'Gagal menyimpan isi materi seed');
-
-  const quizzes = courses.map((course) => ({
-    id: stableUuid(`quiz:${course.slug}`),
-    course_id: course.id,
-    module_id: stableUuid(`module:${course.slug}:2`),
-    title: `Kuis: ${course.title}`,
-    time_limit_minutes: 20,
-    passing_score: 80,
-    max_attempts: 3,
-    is_published: course.status === 'published',
-  }));
-  await assertNoError(await client.from('quizzes').upsert(quizzes, { onConflict: 'id' }), 'Gagal menyimpan kuis seed');
-
-  const questions = [];
-  const options = [];
-  const keys = [];
-  for (const [courseIndex, course] of courses.entries()) {
-    for (let index = 0; index < 5; index += 1) {
-      const questionId = stableUuid(`question:${course.slug}:${index + 1}`);
-      questions.push({
-        id: questionId,
-        quiz_id: quizzes[courseIndex].id,
-        topic: index < 2 ? 'Konsep' : 'Praktik',
-        text: `${questionPrompts[index]} (${course.title})`,
-        code_snippet: null,
-        position: index,
-        points: 20,
-      });
-      const optionIds = optionLabels.map((label) => stableUuid(`option:${course.slug}:${index + 1}:${label}`));
-      options.push(...optionLabels.map((label, optionIndex) => ({
-        id: optionIds[optionIndex],
-        question_id: questionId,
-        label,
-        text: optionSets[index][optionIndex],
-      })));
-      keys.push({
-        question_id: questionId,
-        correct_option_id: optionIds[0],
-        explanation: 'Pilih jawaban yang mengikuti tujuan dan langkah kerja pada materi.',
-      });
-    }
-  }
-  await assertNoError(await client.from('questions').upsert(questions, { onConflict: 'id' }), 'Gagal menyimpan soal seed');
-  await assertNoError(await client.from('question_options').upsert(options, { onConflict: 'id' }), 'Gagal menyimpan opsi seed');
-  await assertNoError(await client.from('question_keys').upsert(keys, { onConflict: 'question_id' }), 'Gagal menyimpan kunci jawaban seed');
 
   const enrollmentSpecs = [
     [0, 0], [0, 1], [1, 0], [1, 2], [2, 1],
@@ -477,7 +471,11 @@ async function runSeed(client, userIds) {
     for (let questionIndex = 0; questionIndex < 5; questionIndex += 1) {
       const questionId = stableUuid(`question:${courses[courseIndex].slug}:${questionIndex + 1}`);
       const correct = !isSubmitted || questionIndex < Math.round(score / 20);
-      const selectedLabel = correct ? 'A' : 'B';
+      const correctLabel = ['A', 'B', 'C', 'D'][
+        courseMaterials[courses[courseIndex].slug].questions[questionIndex].correctIndex
+      ];
+      const incorrectLabel = correctLabel === 'A' ? 'B' : 'A';
+      const selectedLabel = correct ? correctLabel : incorrectLabel;
       answers.push({
         attempt_id: attemptId,
         question_id: questionId,
@@ -547,16 +545,43 @@ async function runSeed(client, userIds) {
   };
 }
 
+async function runMaterialsOnly(client) {
+  validateCourseMaterials(courseSeeds);
+  const slugs = courseSeeds.map((course) => course.slug);
+  const { data: courses, error: courseError } = await client
+    .from('courses')
+    .select('id, slug, title, status')
+    .in('slug', slugs);
+  if (courseError) throw new Error(`Gagal membaca kursus demo: ${courseError.message}`);
+  const foundSlugs = new Set((courses ?? []).map((course) => course.slug));
+  const missingSlugs = slugs.filter((slug) => !foundSlugs.has(slug));
+  if (missingSlugs.length) throw new Error(`Kursus demo belum tersedia; materi tidak diperbarui: ${missingSlugs.join(', ')}`);
+
+  for (const course of courses) {
+    const material = courseMaterials[course.slug];
+    const { error: courseUpdateError } = await client.from('courses').update({
+      learning_outcomes: material.learningOutcomes,
+      requirements: material.requirements,
+    }).eq('id', course.id);
+    if (courseUpdateError) throw new Error(`Gagal memperbarui capaian kursus ${course.slug}: ${courseUpdateError.message}`);
+  }
+
+  const { modules, lessons } = await seedLearningMaterials(client, courses, { includeAssessments: false });
+  return { courses: courses.length, modules: modules.length, lessons: lessons.length };
+}
+
+const isMaterialsOnly = process.argv.includes('--materials-only');
 if (isDryRun) {
   console.log(JSON.stringify({
     dryRun: true,
-    plannedAccounts: 1 + instructors.length + participants.length,
+    materialsOnly: isMaterialsOnly,
+    plannedAccounts: isMaterialsOnly ? 0 : 1 + instructors.length + participants.length,
     publishedCourses: courseSeeds.filter((course) => course.status === 'published').length,
     pendingCourses: courseSeeds.filter((course) => course.status === 'pending_review').length,
     modules: courseSeeds.length * 2,
     lessons: courseSeeds.length * 4,
-    questions: courseSeeds.length * 5,
-    requiresServiceRoleKey: true,
+    questions: isMaterialsOnly ? 0 : courseSeeds.length * 5,
+    connectsToSupabase: false,
   }, null, 2));
   process.exit(0);
 }
@@ -571,16 +596,24 @@ try {
 const supabaseUrl = env.SUPABASE_URL;
 const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY;
 const seedPassword = env.SEED_PASSWORD;
-if (!supabaseUrl || !serviceRoleKey || !seedPassword) {
-  throw new Error('.env.seed.local harus berisi SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, dan SEED_PASSWORD.');
-}
-if (seedPassword.length < 12) {
-  throw new Error('SEED_PASSWORD harus memiliki minimal 12 karakter.');
+if (!supabaseUrl || !serviceRoleKey) {
+  throw new Error('.env.seed.local harus berisi SUPABASE_URL dan SUPABASE_SERVICE_ROLE_KEY.');
 }
 
 const client = createClient(supabaseUrl, serviceRoleKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
+if (isMaterialsOnly) {
+  const summary = await runMaterialsOnly(client);
+  console.log(`Materi diperbarui: ${summary.courses} kursus, ${summary.modules} modul, ${summary.lessons} materi. Akun, pendaftaran, pembayaran, dan kuis yang ada tidak diubah.`);
+  process.exit(0);
+}
+if (!seedPassword) {
+  throw new Error('.env.seed.local harus berisi SEED_PASSWORD untuk menjalankan seed lengkap.');
+}
+if (seedPassword.length < 12) {
+  throw new Error('SEED_PASSWORD harus memiliki minimal 12 karakter.');
+}
 const userIds = await ensureUsers(client, seedPassword);
 const summary = await runSeed(client, userIds);
 console.log(`Seed selesai: ${summary.accounts} akun, ${summary.publishedCourses} kursus terbit, ${summary.lessons} materi, ${summary.questions} soal.`);

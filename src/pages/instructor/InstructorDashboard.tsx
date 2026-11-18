@@ -44,8 +44,14 @@ export const InstructorDashboard: React.FC = () => {
   const createdCourse = instructorCourses.find((course) => course.id === searchParams.get('created'));
   const courseIdsKey = instructorCourses.map((course) => course.id).sort().join(',');
   const courseIds = useMemo(() => courseIdsKey ? courseIdsKey.split(',') : [], [courseIdsKey]);
+  const activeSection = searchParams.get('section');
   const publishedCourses = instructorCourses.filter((course) => course.status === 'Published').length;
   const pendingCourses = instructorCourses.filter((course) => course.status === 'Pending review').length;
+
+  useEffect(() => {
+    if (activeSection !== 'courses') return;
+    document.getElementById('instructor-courses')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [activeSection, instructorCourses.length]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -174,12 +180,11 @@ export const InstructorDashboard: React.FC = () => {
         </p>
       )}
 
-      {instructorCourses.length > 0 && (
-        <Card className="overflow-hidden">
+      <Card id="instructor-courses" className="scroll-mt-6 overflow-hidden">
           <div className="flex items-center justify-between gap-3 border-b border-border p-5">
             <div>
               <h2 className="text-base font-bold text-text-heading">Kursusmu</h2>
-              <p className="mt-1 text-xs text-slate-500">Kursus dan draf yang telah kamu buat.</p>
+              <p className="mt-1 text-xs text-slate-500">Pilih “Kelola materi” pada kursus untuk membuka editor modul dan pelajaran.</p>
             </div>
             <Button
               variant="outline"
@@ -219,9 +224,13 @@ export const InstructorDashboard: React.FC = () => {
                 </Button>
               </li>
             ))}
+            {instructorCourses.length === 0 && (
+              <li className="px-5 py-8 text-center text-sm text-slate-500">
+                Kamu belum memiliki kursus. Gunakan tombol “Buat Kursus” untuk memulai.
+              </li>
+            )}
           </ul>
-        </Card>
-      )}
+      </Card>
 
       {/* 4 Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

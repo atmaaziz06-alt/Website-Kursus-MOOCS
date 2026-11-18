@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { Mail, Phone, MapPin } from 'lucide-react';
 import { media } from '../../config/media';
 
+const currentYear = new Date().getFullYear();
+
 export const Footer: React.FC = () => {
   return (
     <footer className="bg-navy-dark text-slate-300 pt-16 pb-8 border-t border-navy">
@@ -122,7 +124,7 @@ export const Footer: React.FC = () => {
         {/* Bottom bar */}
         <div className="pt-8 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
           <div>
-            © 2025 EduSpace. Hak cipta dilindungi. Belajar untuk semua.
+            © {currentYear} EduSpace. Hak cipta dilindungi. Belajar untuk semua.
           </div>
           <div className="flex items-center gap-6">
             <span>Kebijakan privasi dan ketentuan layanan belum tersedia pada versi demo.</span>

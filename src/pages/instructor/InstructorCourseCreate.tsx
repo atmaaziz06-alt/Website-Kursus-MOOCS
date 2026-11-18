@@ -34,11 +34,16 @@ export const InstructorCourseCreate: React.FC = () => {
     const form = event.currentTarget;
     const formData = new FormData(form);
     const title = String(formData.get('title') || '').trim();
+    const subtitle = String(formData.get('subtitle') || '').trim();
     const description = String(formData.get('description') || '').trim();
     const priceValue = Number(formData.get('price'));
+    const parseList = (value: FormDataEntryValue | null) => String(value ?? '')
+      .split(/\r?\n/)
+      .map((item) => item.trim())
+      .filter(Boolean);
 
-    if (!title || description.length < 20 || !Number.isFinite(priceValue) || priceValue < 0) {
-      setErrorMessage('Masukkan judul, deskripsi minimal 20 karakter, dan harga nol atau lebih yang valid.');
+    if (!title || !subtitle || description.length < 20 || !Number.isFinite(priceValue) || priceValue < 0) {
+      setErrorMessage('Masukkan judul, subjudul, deskripsi minimal 20 karakter, dan harga nol atau lebih yang valid.');
       return;
     }
     if (thumbnail && (
@@ -58,7 +63,10 @@ export const InstructorCourseCreate: React.FC = () => {
     try {
       const newCourse = await createInstructorCourse({
         title,
+        subtitle,
         description,
+        learningOutcomes: parseList(formData.get('learning_outcomes')),
+        requirements: parseList(formData.get('requirements')),
         duration: 'Materi belum ditambahkan',
         price: priceValue,
         category: formData.get('category') as CourseCategory,
@@ -132,7 +140,13 @@ export const InstructorCourseCreate: React.FC = () => {
             maxLength={100}
             required
           />
-
+          <Input
+            name="subtitle"
+            label="Subjudul"
+            placeholder="Ringkasan singkat manfaat kursus"
+            maxLength={180}
+            required
+          />
           <div>
             <label htmlFor="course-description" className="block text-xs font-semibold text-text-heading mb-1.5 uppercase tracking-wide">
               Deskripsi kursus
@@ -148,6 +162,30 @@ export const InstructorCourseCreate: React.FC = () => {
               className="w-full rounded-xl border border-border bg-white px-3.5 py-3 text-sm text-slate-800 placeholder:text-slate-400 transition-all focus:outline-none focus:ring-2 focus:ring-blue/20 focus:border-blue"
             />
             <p className="mt-1 text-xs text-slate-400">Tuliskan minimal 20 karakter.</p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block text-xs font-semibold text-text-heading">
+              Capaian pembelajaran
+              <span className="mt-1 block font-normal text-slate-500">Tulis satu capaian per baris.</span>
+              <textarea
+                name="learning_outcomes"
+                rows={4}
+                maxLength={2000}
+                placeholder={'Memahami dasar topik\nMampu membuat proyek sederhana'}
+                className="mt-1.5 w-full rounded-xl border border-border bg-white px-3.5 py-3 text-sm text-slate-800 placeholder:text-slate-400 focus:border-blue focus:outline-none focus:ring-2 focus:ring-blue/20"
+              />
+            </label>
+            <label className="block text-xs font-semibold text-text-heading">
+              Persyaratan
+              <span className="mt-1 block font-normal text-slate-500">Tulis satu persyaratan per baris; boleh dikosongkan.</span>
+              <textarea
+                name="requirements"
+                rows={4}
+                maxLength={2000}
+                placeholder="Contoh: memahami dasar penggunaan komputer"
+                className="mt-1.5 w-full rounded-xl border border-border bg-white px-3.5 py-3 text-sm text-slate-800 placeholder:text-slate-400 focus:border-blue focus:outline-none focus:ring-2 focus:ring-blue/20"
+              />
+            </label>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
