@@ -117,7 +117,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ isOpen, onCl
       >
         <div>
           {/* Top Logo Block */}
-          <div className="p-5 flex items-center justify-between border-b border-navy-dark">
+         <div className="h-16 px-5 flex items-center justify-between border-b border-navy-dark">
             <Link to="/" className="flex items-center gap-2.5">
               <div className="flex h-9 w-10 items-center justify-center rounded-lg bg-white p-0.5">
                 <img src={media.brand.logoMark} alt="" className="max-h-full max-w-full object-contain" />
